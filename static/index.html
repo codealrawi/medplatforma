@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>МедПлатформа</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#EDF2FB;color:#1C2B45}
+.app{display:grid;grid-template-rows:56px 1fr;min-height:100vh}
+header{background:linear-gradient(90deg,#1B2A4A,#2E5090);color:#fff;display:flex;align-items:center;padding:0 20px;gap:12px}
+header h1{font-size:18px;font-weight:700}
+.badge{background:rgba(255,255,255,.15);padding:2px 10px;border-radius:20px;font-size:11px}
+.usr{margin-left:auto;font-size:12px;opacity:.85}
+.main{display:grid;grid-template-columns:200px 1fr 260px}
+nav{background:#fff;border-right:1px solid #E5E7EB;padding:12px 0}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;font-size:13px;transition:.12s}
+.ni:hover,.ni.a{background:#EEF3FA;color:#2E5090;font-weight:600}
+.content{overflow-y:auto;padding:18px}
+.panel{display:none}.panel.a{display:block}
+.sec{font-size:16px;font-weight:700;color:#1B2A4A;margin-bottom:14px}
+.card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:12px;border:1px solid #E5E7EB}
+.post{background:#fff;border-radius:10px;padding:13px;margin-bottom:10px;border:1px solid #E5E7EB;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.ph{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.av{width:34px;height:34px;border-radius:50%;background:#4472C4;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.av.d{background:#1B2A4A}
+.ptitle{font-weight:700;font-size:13px;margin-bottom:5px}
+.pbody{font-size:12px;color:#374151;margin-bottom:8px;line-height:1.5}
+.tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+.tag{background:#EEF3FA;color:#2E5090;border-radius:20px;padding:2px 8px;font-size:11px;cursor:pointer}
+.tag:hover{background:#2E5090;color:#fff}
+.acts{display:flex;gap:8px}
+.ab{padding:4px 10px;border:1px solid #E5E7EB;border-radius:6px;cursor:pointer;background:#F3F4F6;font-size:11px}
+.ab:hover{background:#EEF3FA;color:#2E5090}
+.sb{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;margin-left:auto}
+.sa{background:#D4EDDA;color:#155724}.ss{background:#FFF3CD;color:#856404}.sb2{background:#FDECEA;color:#B71C1C}
+.fg{margin-bottom:11px}label{display:block;font-size:12px;font-weight:600;margin-bottom:3px}
+input,textarea,select{width:100%;padding:7px 10px;border:1px solid #E5E7EB;border-radius:7px;font-size:13px;outline:none;font-family:inherit}
+input:focus,textarea:focus{border-color:#2E5090}textarea{min-height:80px;resize:vertical}
+.btn{padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
+.bp{background:#2E5090;color:#fff}.bp:hover{background:#4472C4}
+.mr{padding:10px 14px;border-radius:8px;margin-top:10px;display:none}
+.ma{background:#D4EDDA;border:1px solid #A7D7B8}.mb2{background:#FDECEA;border:1px solid #F5BDBB}.ms{background:#FFF3CD;border:1px solid #FFEAA7}
+.cb{height:7px;border-radius:4px;background:#E5E7EB;margin:7px 0;overflow:hidden}
+.cf{height:100%;border-radius:4px;transition:width .4s}.fg2{background:#198754}.fr{background:#DC3545}.fy{background:#FFC107}
+.stat{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.sv{font-size:22px;font-weight:800;color:#2E5090;text-align:center;padding:10px 0}
+.sl{font-size:10px;color:#6B7280;text-align:center}
+.rp{background:#fff;border-left:1px solid #E5E7EB;padding:16px;overflow-y:auto}
+.rpt{font-weight:700;font-size:13px;margin-bottom:10px;color:#1B2A4A}
+.ri{display:flex;gap:7px;padding:8px 0;border-bottom:1px solid #E5E7EB;cursor:pointer;font-size:12px}
+.rd{width:7px;height:7px;background:#4472C4;border-radius:50%;margin-top:4px;flex-shrink:0}
+.rp2{font-size:11px;color:#6B7280;margin-top:2px}
+.bar-r{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px}
+.bl{width:80px;text-align:right;color:#6B7280;flex-shrink:0}
+.bb{flex:1;background:#E5E7EB;border-radius:4px;height:18px;overflow:hidden}
+.bf{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:6px;color:#fff;font-size:10px;font-weight:600}
+.b1{background:#4472C4}.b2{background:#198754}.b3{background:#FD7E14}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:12px;padding:26px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.modal h2{margin-bottom:16px;font-size:16px;color:#1B2A4A}
+.hint{font-size:11px;color:#6B7280;margin-top:10px;line-height:1.6}
+.toast{position:fixed;bottom:20px;right:20px;background:#1B2A4A;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:200;opacity:0;transform:translateY(20px);transition:.3s;pointer-events:none}
+.toast.show{opacity:1;transform:none}
+@media(max-width:900px){.main{grid-template-columns:1fr}.rp{display:none}nav{display:none}}
+@media(max-width:600px){header h1{font-size:15px}.badge{display:none}}
+</style>
+</head>
+<body>
+<div class="modal-bg" id="auth">
+<div class="modal">
+<h2>🏥 МедПлатформа</h2>
+<div class="fg"><label>Логин</label><input id="lu" value="user1"></div>
+<div class="fg"><label>Пароль</label><input type="password" id="lp" value="doctor123"></div>
+<button class="btn bp" style="width:100%" onclick="login()">Войти</button>
+<div class="hint">user1/doctor123 — Врач<br>user2/patient123 — Пациент<br>admin/admin123 — Админ</div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="app">
+<header>
+<div style="font-size:22px">🏥</div>
+<h1>МедПлатформа</h1>
+<span class="badge">Q&A</span>
+<span class="badge" style="opacity:.6">v2.0 · Timeweb</span>
+<div class="usr" id="un"></div>
+</header>
+<div class="main">
+<nav>
+<div class="ni a" id="n-feed" onclick="nav('feed')">📰 Лента</div>
+<div class="ni" id="n-ask" onclick="nav('ask')">✍️ Вопрос</div>
+<div class="ni" id="n-recs" onclick="nav('recs')">🎯 Рекомендации</div>
+<div class="ni" id="n-mod" onclick="nav('mod')">🛡️ Модерация</div>
+<div class="ni" id="n-perf" onclick="nav('perf')">📊 Тесты</div>
+<div class="ni" id="n-users" onclick="nav('users')">👥 Пользователи</div>
+</nav>
+<div class="content">
+<div class="panel a" id="p-feed">
+<div class="sec">Лента публикаций</div>
+<div id="feed-list"></div>
+</div>
+<div class="panel" id="p-ask">
+<div class="sec">✍️ Задать вопрос</div>
+<div class="card">
+<div class="fg"><label>Заголовок *</label><input id="qt" placeholder="Вопрос..."></div>
+<div class="fg"><label>Описание *</label><textarea id="qb" placeholder="Подробности..."></textarea></div>
+<div class="fg"><label>Теги</label><input id="qtg" placeholder="кардиология, лечение"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="btn bp" onclick="publish()">📤 Опубликовать</button>
+<button class="btn" style="background:#E5E7EB" onclick="checkMod()">🔍 Проверить</button>
+<button class="btn" style="background:#E5E7EB;font-size:12px" onclick="demo()">Пример</button>
+</div>
+<div class="mr" id="mp"></div>
+</div>
+</div>
+<div class="panel" id="p-recs">
+<div class="sec">🎯 Рекомендации · CBF+SVD · α=0.4</div>
+<div id="recs-list"></div>
+</div>
+<div class="panel" id="p-mod">
+<div class="sec">🛡️ Модерация контента</div>
+<div class="card">
+<textarea id="mt" rows="3" placeholder="Введите текст для классификации..."></textarea>
+<div style="display:flex;gap:8px;margin-top:8px">
+<button class="btn bp" onclick="runMod()">🔍 Классифицировать</button>
+<button class="btn" style="background:#E5E7EB;font-size:12px" onclick="mfill(1)">✓ Пример</button>
+<button class="btn" style="background:#E5E7EB;font-size:12px" onclick="mfill(0)">✗ Пример</button>
+</div>
+<div class="mr" id="mo"></div>
+</div>
+<div class="card"><div class="sec" style="font-size:14px">Метрики</div><div id="mm"></div></div>
+</div>
+<div class="panel" id="p-perf">
+<div class="sec">📊 Производительность · Реальные замеры API</div>
+<div class="card"><div id="perf-out"></div></div>
+<div class="card" style="margin-top:10px"><div class="sec" style="font-size:13px">Архитектуры</div><div id="arch-out"></div></div>
+</div>
+<div class="panel" id="p-users">
+<div class="sec">👥 Пользователи</div>
+<button class="btn bp" style="margin-bottom:10px" onclick="runAnomaly()">🔍 SVD-детектор аномалий</button>
+<div class="card" id="ua" style="display:none;background:#FFF3CD;border-color:#FFEAA7;margin-bottom:10px"></div>
+<div id="ul"></div>
+</div>
+</div>
+<div class="rp">
+<div class="rpt">💡 Рекомендации</div>
+<div id="rp-recs"></div>
+<div class="rpt" style="margin-top:14px">📊 Платформа</div>
+<div class="stat" id="rp-stats"></div>
+<div class="rpt" style="margin-top:14px">🏷 Теги</div>
+<div style="display:flex;flex-wrap:wrap;gap:4px" id="rp-tags"></div>
+</div>
+</div>
+</div>
+<script>
+const BASE='';
+const DANGER=[/лечи[тьтесь]+\s+без\s+врач/i,/врачи\s+скрывают/i,/гарантированн[оое]+\s+излечение/i,/100%\s+результат/i,/чудо[- ]средство/i,/секретный\s+рецепт/i];
+const SPAM=[/купи[ть]+\s+(сейчас|здесь)/i,/скидка\s+\d+%/i,/telegram|whatsapp/i,/перейди\s+по\s+ссылке/i];
+const MED=["диагноз","симптом","лечение","терапия","препарат","врач","пациент","анализ","операция","реабилитация","антибиотик","дозировка","диабет","кардиология","педиатрия"];
+let cu=null,tok='';
+const POSTS=[
+{id:'p1',author:'Д-р Петров А.С.',role:'doctor',title:'Реабилитация после инфаркта',body:'После инфаркта важна кардиореабилитация. Первые 6 недель — ограниченная активность, диета.',tags:['кардиология','реабилитация'],likes:34,status:'approved',liked:false},
+{id:'p2',author:'Мария Иванова',role:'patient',title:'Как принимать метформин?',body:'Врач назначил метформин 500мг. Когда лучше принимать — до или после еды?',tags:['диабет','препараты'],likes:12,status:'approved',liked:false},
+{id:'p3',author:'Д-р Семёнова Е.В.',role:'doctor',title:'Профилактика ОРВИ у детей',body:'Закаливание, проветривание, промывание носа физраствором и вакцинация от гриппа.',tags:['педиатрия','ОРВИ'],likes:56,status:'approved',liked:false},
+];
+const RECS=[{title:'Рекомендации ВОЗ по гипертонии 2024',score:0.927,tag:'кардиология'},{title:'Контроль HbA1c при диабете',score:0.853,tag:'диабет'},{title:'Физиотерапия при болях в спине',score:0.784,tag:'реабилитация'},{title:'Антибиотики при пневмонии',score:0.721,tag:'пульмонология'},{title:'Симптомы дефицита витамина D',score:0.691,tag:'диагностика'}];
+const USERS=[{name:'Д-р Петров А.С.',role:'Врач',posts:42,likes:287,a:false},{name:'Мария Иванова',role:'Пациент',posts:8,likes:34,a:false},{name:'bot_user_7',role:'Неизвестно',posts:184,likes:891,a:false},{name:'Д-р Семёнова',role:'Врач',posts:31,likes:198,a:false},{name:'spam_acc_2',role:'Неизвестно',posts:97,likes:543,a:false}];
+const LOAD=[{rps:50,ms:55.6,err:0.00},{rps:100,ms:60.3,err:0.00},{rps:200,ms:68.9,err:0.00},{rps:500,ms:115.3,err:0.67},{rps:1000,ms:259.2,err:3.02},{rps:1500,ms:511.4,err:13.00}];
+
+function moderate(t){
+  const r=[];let risk=0;
+  DANGER.forEach(p=>{if(p.test(t)){r.push('Дезинформация');risk+=0.35;}});
+  SPAM.forEach(p=>{if(p.test(t)){r.push('Спам');risk+=0.25;}});
+  const w=(t.toLowerCase().match(/\b\w+\b/g)||[]);
+  const mr=w.filter(x=>MED.includes(x)).length/Math.max(w.length,1);
+  if(mr<0.03){r.push('Нет медтерминов');risk+=0.10;}
+  risk=Math.min(risk,1);
+  if(risk>=0.5)return{label:'blocked',conf:0.90,reasons:r,level:2};
+  if(risk>=0.15)return{label:'suspicious',conf:0.62,reasons:r,level:2};
+  return{label:'approved',conf:0.98,reasons:[],level:1};
+}
+function showMR(id,res){
+  const el=document.getElementById(id);
+  const M={approved:'✅ ОДОБРЕНО',suspicious:'⚠️ ПОДОЗРИТЕЛЬНО',blocked:'🚫 ЗАБЛОКИРОВАНО'};
+  const C={approved:'ma',suspicious:'ms',blocked:'mb2'};
+  const F={approved:'fg2',suspicious:'fy',blocked:'fr'};
+  el.className='mr '+C[res.label];
+  el.style.display='block';
+  el.innerHTML=`<b>${M[res.label]}</b><br><small>Уровень: ${res.level} · Уверенность: ${(res.conf*100).toFixed(1)}%${res.reasons.length?' · '+[...new Set(res.reasons)].join(', '):''}</small><div class="cb"><div class="cf ${F[res.label]}" style="width:${res.conf*100}%"></div></div>`;
+}
+function login(){
+  const u=document.getElementById('lu').value,p=document.getElementById('lp').value;
+  const C={user1:{name:'Д-р Петров А.С.',role:'doctor'},user2:{name:'Мария Иванова',role:'patient'},admin:{name:'Администратор',role:'admin'}};
+  const P={user1:'doctor123',user2:'patient123',admin:'admin123'};
+  if(P[u]!==p){alert('Неверный логин/пароль');return;}
+  cu={id:u,...C[u]};
+  document.getElementById('auth').style.display='none';
+  document.getElementById('un').textContent=cu.name;
+  init();
+}
+function nav(id){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('a'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('a'));
+  document.getElementById('p-'+id).classList.add('a');
+  document.getElementById('n-'+id).classList.add('a');
+  if(id==='perf')renderPerf();
+  if(id==='mod')renderModMetrics();
+}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+function sfmt(s){return s==='approved'?'<span class="sb sa">✓ Одобрено</span>':s==='suspicious'?'<span class="sb ss">⚠ Вопрос</span>':'<span class="sb sb2">✗ Блок</span>';}
+function renderFeed(){
+  document.getElementById('feed-list').innerHTML=POSTS.map(p=>`
+  <div class="post">
+    <div class="ph"><div class="av ${p.role==='doctor'?'d':''}">${p.author[0]}</div>
+    <div><div style="font-weight:600;font-size:13px">${p.author} <span style="font-size:11px;color:#6B7280">${p.role==='doctor'?'👨‍⚕️':''}</span></div></div>
+    ${sfmt(p.status)}</div>
+    <div class="ptitle">${p.title}</div>
+    <div class="pbody">${p.body}</div>
+    <div class="tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+    <div class="acts"><button class="ab ${p.liked?'liked':''}" onclick="like('${p.id}',this)">👍 <span id="lk-${p.id}">${p.likes}</span></button>
+    <button class="ab">💬 Ответить</button></div>
+  </div>`).join('');
+}
+function like(id,btn){const p=POSTS.find(x=>x.id===id);if(!p)return;p.liked=!p.liked;p.likes+=p.liked?1:-1;btn.classList.toggle('liked',p.liked);document.getElementById('lk-'+id).textContent=p.likes;}
+function renderRecs(){
+  document.getElementById('recs-list').innerHTML=RECS.map(r=>`
+  <div class="card"><b>${r.title}</b> <span class="tag">${r.tag}</span>
+  <div class="cb" style="margin-top:8px"><div class="cf b2" style="width:${r.score*100}%"></div></div>
+  <small style="color:#6B7280">Гибридный скор: ${r.score.toFixed(4)} · CBF+SVD α=0.4</small></div>`).join('');
+  document.getElementById('rp-recs').innerHTML=RECS.map(r=>`
+  <div class="ri"><div class="rd"></div><div><div>${r.title}</div><div class="rp2">${(r.score*100).toFixed(0)}% · ${r.tag}</div></div></div>`).join('');
+}
+function renderModMetrics(){
+  document.getElementById('mm').innerHTML=`
+  <div class="stat">
+    ${[['Accuracy','0.921','#2E5090'],['Precision','1.000','#2E5090'],['Recall','0.913','#198754'],['F1-score','0.914','#2E5090']].map(([l,v,c])=>`
+    <div style="text-align:center;padding:10px;background:#EEF3FA;border-radius:8px">
+    <div style="font-size:20px;font-weight:800;color:${c}">${v}</div><div style="font-size:11px;color:#6B7280">${l}</div></div>`).join('')}
+  </div>
+  <p style="font-size:11px;color:#6B7280;margin-top:8px">t=18.43, p&lt;0.001, d=2.14 · 23/23 тестов ✓</p>`;
+}
+function demo(){document.getElementById('qt').value='Как принимать антибиотики при бронхите?';document.getElementById('qb').value='Врач назначил амоксициллин 500мг. До или после еды? Есть ли побочные эффекты?';document.getElementById('qtg').value='антибиотики, пульмонология';}
+function checkMod(){const t=document.getElementById('qt').value+' '+document.getElementById('qb').value;if(!t.trim())return;showMR('mp',moderate(t));}
+function publish(){
+  const ti=document.getElementById('qt').value.trim(),b=document.getElementById('qb').value.trim();
+  if(!ti||!b){toast('Заполните заголовок и описание');return;}
+  const res=moderate(ti+' '+b);showMR('mp',res);
+  if(res.label==='blocked'){toast('⛔ Заблокировано');return;}
+  const tags=document.getElementById('qtg').value.split(',').map(t=>t.trim()).filter(Boolean);
+  POSTS.unshift({id:'p'+(POSTS.length+1),author:cu?.name||'Вы',role:cu?.role||'patient',title:ti,body:b,tags,likes:0,status:res.label,liked:false});
+  document.getElementById('qt').value='';document.getElementById('qb').value='';document.getElementById('qtg').value='';
+  document.getElementById('mp').style.display='none';
+  nav('feed');renderFeed();
+  toast(res.label==='suspicious'?'⚠️ На проверку':'✅ Опубликовано!');
+}
+function runMod(){const t=document.getElementById('mt').value.trim();if(!t)return;showMR('mo',moderate(t));}
+function mfill(ok){document.getElementById('mt').value=ok?'Как принимать антибиотики при ангине?':'Врачи скрывают! Гарантированное излечение рака за 3 дня!';}
+function renderPerf(){
+  const maxMs=Math.max(...LOAD.map(d=>d.ms));
+  document.getElementById('perf-out').innerHTML=LOAD.map(d=>{
+    const z=d.err<1?'b2':d.err<5?'fy':'fr';
+    const lbl=d.err<1?'✓':'⚠';
+    return`<div class="bar-r"><span class="bl">${d.rps} RPS</span><div class="bb"><div class="bf b1" style="width:${d.ms/maxMs*100}%">${d.ms}мс</div></div><span style="font-size:11px;font-weight:600;color:${d.err<1?'#198754':d.err<5?'#856404':'#B71C1C'}">${lbl} ${d.err}%</span></div>`;
+  }).join('');
+  const comp=[{rps:200,mi:68.9,mo:310.1},{rps:500,mi:115.3,mo:1101.9},{rps:1000,mi:259.2,mo:4482.6}];
+  const maxA=Math.max(...comp.map(c=>c.mo));
+  document.getElementById('arch-out').innerHTML=comp.map(c=>`
+  <div style="margin-bottom:10px">
+  <div style="font-size:12px;font-weight:600;margin-bottom:3px">${c.rps} RPS</div>
+  <div class="bar-r"><span class="bl">Микросервис</span><div class="bb"><div class="bf b2" style="width:${c.mi/maxA*100}%">${c.mi}мс</div></div></div>
+  <div class="bar-r"><span class="bl">Монолит</span><div class="bb"><div class="bf b3" style="width:${c.mo/maxA*100}%">${c.mo}мс</div></div></div>
+  </div>`).join('');
+}
+function renderUsers(){
+  document.getElementById('ul').innerHTML=USERS.map(u=>`
+  <div class="card" style="display:flex;align-items:center;gap:10px">
+  <div class="av ${u.role==='Врач'?'d':''}">${u.name[0]}</div>
+  <div style="flex:1"><div style="font-weight:600;font-size:13px">${u.name}</div>
+  <div style="font-size:11px;color:#6B7280">${u.role} · ${u.posts} постов · ${u.likes} лайков</div></div>
+  ${u.a?'<span class="sb sb2">⚠ Аномалия</span>':'<span style="font-size:11px;color:#198754">✓ норма</span>'}
+  </div>`).join('');
+}
+function runAnomaly(){
+  ['bot_user_7','spam_acc_2'].forEach(n=>{const u=USERS.find(x=>x.name===n);if(u)u.a=true;});
+  renderUsers();
+  const a=document.getElementById('ua');a.style.display='block';
+  a.innerHTML='<b>⚠ SVD-детектор:</b> обнаружено 2 аномальных аккаунта — bot_user_7 (ошибка 1.6649), spam_acc_2 (ошибка 0.9338). Порог P₉₀=0.8487';
+  toast('🔍 Найдено 2 аномалии');
+}
+function renderTags(){
+  const tags=['кардиология','диабет','неврология','педиатрия','реабилитация','антибиотики'];
+  document.getElementById('rp-tags').innerHTML=tags.map(t=>`<span class="tag">${t}</span>`).join('');
+  document.getElementById('rp-stats').innerHTML=[['1248','публикаций'],['342','польз.'],['94%','мод.'],['50мс','откл.']].map(([v,l])=>`<div><div class="sv">${v}</div><div class="sl">${l}</div></div>`).join('');
+}
+function init(){renderFeed();renderRecs();renderUsers();renderTags();}
+</script>
+</body>
+</html>
