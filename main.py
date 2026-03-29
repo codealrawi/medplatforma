@@ -1,150 +1,179 @@
 """
-МедПлатформа — FastAPI Backend с PostgreSQL
+МедПлатформа API v3.0
 Автор: Аль-Раве Мустафа Исам Табит · РГСУ · спец. 2.3.5
+
+Особенности:
+  - PostgreSQL через asyncpg (если настроены переменные окружения)
+  - Если БД недоступна — автоматически работает с in-memory данными
+  - Приложение НИКОГДА не падает из-за БД
 """
 
-from fastapi import FastAPI, HTTPException, Depends, status
+import os, time, hashlib, secrets, logging
+from datetime import datetime
+from typing import List
+
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from typing import Optional, List
-import time, hashlib, secrets, os
-from datetime import datetime, timedelta
 
+import database as db
 from services.moderation_service import ContentModerator
 from services.recommendation_service import HybridRecommender, generate_demo_data
-from services.load_testing import LoadTester, AnomalyDetector
-from database import create_pool, close_pool, get_pool, check_connection
 
-# ─── Приложение ──────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ── Приложение ────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="МедПлатформа API",
-    description="Q&A-платформа для пациентов и врачей. Диссертационный прототип.",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    version="3.0.0",
+    description="Q&A платформа для пациентов и врачей · Диссертационный прототип",
 )
-
-# ─── Жизненный цикл (startup / shutdown) ─────────────────────────────────────
-@app.on_event("startup")
-async def startup():
-    await create_pool()
-    # Инициализируем ML-сервисы
-    app.state.moderator = ContentModerator()
-    app.state.moderator.train()
-    items, interactions = generate_demo_data()
-    app.state.recommender = HybridRecommender(alpha=0.4)
-    app.state.recommender.fit(items, interactions)
-    app.state.items_meta = {it["id"]: it for it in items}
-
-@app.on_event("shutdown")
-async def shutdown():
-    await close_pool()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
 
 security = HTTPBearer(auto_error=False)
 
-# ─── Статический фронтенд ─────────────────────────────────────────────────────
-_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-if os.path.exists(_static_dir):
-    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+# ── In-memory хранилище (fallback) ────────────────────────────────────────────
+_h = lambda p: hashlib.sha256(p.encode()).hexdigest()
+
+MEM_USERS = {
+    "user1": {"id":"user1","name":"Д-р Петров А.С.","role":"doctor",
+              "ph":_h("doctor123"),"posts":42,"likes":287},
+    "user2": {"id":"user2","name":"Мария Иванова","role":"patient",
+              "ph":_h("patient123"),"posts":8,"likes":34},
+    "admin": {"id":"admin","name":"Администратор","role":"admin",
+              "ph":_h("admin123"),"posts":0,"likes":0},
+}
+MEM_POSTS = [
+    {"id":"p1","author":"Д-р Петров А.С.","role":"doctor",
+     "title":"Реабилитация после инфаркта миокарда",
+     "body":"После инфаркта важна кардиореабилитация. Первые 6 недель — ограниченная физическая активность, диета с ограничением соли.",
+     "tags":["кардиология","реабилитация"],"likes_count":34,"status":"approved"},
+    {"id":"p2","author":"Мария Иванова","role":"patient",
+     "title":"Как принимать метформин при диабете 2 типа?",
+     "body":"Врач назначил метформин 500мг. Когда лучше принимать — до или после еды? Есть ли побочные эффекты?",
+     "tags":["диабет","препараты"],"likes_count":12,"status":"approved"},
+    {"id":"p3","author":"Д-р Семёнова Е.В.","role":"doctor",
+     "title":"Профилактика ОРВИ у детей",
+     "body":"Закаливание, проветривание, промывание носа физраствором и вакцинация от гриппа.",
+     "tags":["педиатрия","ОРВИ"],"likes_count":56,"status":"approved"},
+]
+_TOKENS: dict = {}
+
+# ── Жизненный цикл ────────────────────────────────────────────────────────────
+@app.on_event("startup")
+async def startup():
+    # ML-сервисы (обязательно)
+    app.state.mod = ContentModerator()
+    app.state.mod.train()
+    items, ints = generate_demo_data()
+    app.state.rec = HybridRecommender(alpha=0.4)
+    app.state.rec.fit(items, ints)
+    logger.info("[INIT] ML-сервисы готовы")
+
+    # БД (опционально — не падаем если недоступна)
+    ok = await db.init_pool()
+    app.state.use_db = ok
+    logger.info(f"[INIT] БД: {'PostgreSQL ✓' if ok else 'in-memory (БД недоступна)'}")
+
+@app.on_event("shutdown")
+async def shutdown():
+    await db.close_pool()
+
+# ── Статический фронтенд ─────────────────────────────────────────────────────
+_static = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+if os.path.exists(_static):
+    app.mount("/static", StaticFiles(directory=_static), name="static")
 
 @app.get("/app", include_in_schema=False)
 async def frontend():
-    index_path = os.path.join(_static_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
+    idx = os.path.join(_static, "index.html")
+    if os.path.exists(idx):
+        return FileResponse(idx)
     from fastapi.responses import HTMLResponse
-    return HTMLResponse("<h2>🏥 Фронтенд не найден</h2>", status_code=404)
+    return HTMLResponse("<h2>🏥 МедПлатформа — фронтенд не найден</h2>", 404)
 
-# ─── Pydantic модели ──────────────────────────────────────────────────────────
-class LoginRequest(BaseModel):
+# ── Модели ────────────────────────────────────────────────────────────────────
+class LoginReq(BaseModel):
     username: str
     password: str
 
-class PostCreate(BaseModel):
+class PostReq(BaseModel):
     title: str = Field(..., min_length=5, max_length=500)
     body:  str = Field(..., min_length=10)
     tags:  List[str] = []
 
-class ModerationRequest(BaseModel):
-    text: str = Field(..., min_length=1)
+class ModReq(BaseModel):
+    text: str
 
-# ─── Авторизация ──────────────────────────────────────────────────────────────
-# Простой in-memory кеш токенов (для прототипа)
-_tokens: dict = {}
+# ── Авторизация ───────────────────────────────────────────────────────────────
+def get_user(creds: HTTPAuthorizationCredentials = Depends(security)):
+    if not creds or creds.credentials not in _TOKENS:
+        raise HTTPException(401, "Не авторизован")
+    return _TOKENS[creds.credentials]
 
-async def get_current_user(
-    creds: HTTPAuthorizationCredentials = Depends(security),
-    pool = Depends(get_pool)
-):
-    if not creds:
-        raise HTTPException(status_code=401, detail="Не авторизован")
-    token = creds.credentials
-    if token not in _tokens:
-        raise HTTPException(status_code=401, detail="Токен недействителен")
-    return _tokens[token]
-
-# ─── Эндпоинты ────────────────────────────────────────────────────────────────
+# ── Эндпоинты ─────────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def root():
     return {
-        "service": "МедПлатформа API",
-        "version": "2.0.0",
-        "status": "running",
-        "database": "postgresql",
-        "docs": "/docs",
-        "app": "/app",
-        "timestamp": datetime.utcnow().isoformat()
+        "service":   "МедПлатформа API",
+        "version":   "3.0.0",
+        "status":    "running",
+        "database":  "postgresql" if app.state.use_db else "in-memory",
+        "docs":      "/docs",
+        "app":       "/app",
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 @app.get("/health")
-async def health(pool = Depends(get_pool)):
-    db_ok = await check_connection()
+async def health():
+    db_status = await db.db_ok() if app.state.use_db else False
     return {
-        "status": "ok" if db_ok else "degraded",
-        "database": db_ok,
-        "moderator": True,
-        "recommender": True,
-        "timestamp": datetime.utcnow().isoformat()
+        "status":        "ok",
+        "database":      db_status,
+        "database_mode": "postgresql" if app.state.use_db else "in-memory",
+        "moderator":     True,
+        "recommender":   True,
+        "timestamp":     datetime.utcnow().isoformat(),
     }
 
 @app.post("/auth/login")
-async def login(req: LoginRequest, pool = Depends(get_pool)):
-    password_hash = hashlib.sha256(req.password.encode()).hexdigest()
-    async with pool.acquire() as conn:
-        user = await conn.fetchrow(
+async def login(req: LoginReq):
+    ph = hashlib.sha256(req.password.encode()).hexdigest()
+
+    if app.state.use_db and db.pool:
+        row = await db.pool.fetchrow(
             "SELECT id, name, role FROM users WHERE id=$1 AND password_hash=$2",
-            req.username, password_hash
+            req.username, ph,
         )
-    if not user:
-        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
-    token = secrets.token_hex(32)
-    _tokens[token] = dict(user)
-    return {"token": token, "user": dict(user)}
+        if not row:
+            raise HTTPException(401, "Неверный логин или пароль")
+        user = dict(row)
+    else:
+        u = MEM_USERS.get(req.username)
+        if not u or u["ph"] != ph:
+            raise HTTPException(401, "Неверный логин или пароль")
+        user = {"id": u["id"], "name": u["name"], "role": u["role"]}
+
+    tok = secrets.token_hex(32)
+    _TOKENS[tok] = user
+    return {"token": tok, "user": user}
 
 @app.get("/posts")
-async def get_posts(
-    limit: int = 20,
-    offset: int = 0,
-    pool = Depends(get_pool)
-):
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("""
-            SELECT
-                p.id, p.title, p.body, p.status,
-                p.likes_count, p.created_at,
-                u.id AS author_id, u.name AS author, u.role,
-                array_agg(t.name) FILTER (WHERE t.name IS NOT NULL) AS tags
+async def get_posts(limit: int = 20, offset: int = 0):
+    if app.state.use_db and db.pool:
+        rows = await db.pool.fetch("""
+            SELECT p.id, p.title, p.body, p.status, p.likes_count,
+                   u.name AS author, u.role,
+                   array_agg(t.name) FILTER (WHERE t.name IS NOT NULL) AS tags
             FROM posts p
             JOIN users u ON u.id = p.author_id
             LEFT JOIN post_tags pt ON pt.post_id = p.id
@@ -154,154 +183,120 @@ async def get_posts(
             ORDER BY p.created_at DESC
             LIMIT $1 OFFSET $2
         """, limit, offset)
-
-        total = await conn.fetchval(
-            "SELECT COUNT(*) FROM posts WHERE status='approved'"
-        )
-    return {
-        "posts": [dict(r) for r in rows],
-        "total": total,
-        "limit": limit,
-        "offset": offset
-    }
+        total = await db.pool.fetchval(
+            "SELECT COUNT(*) FROM posts WHERE status='approved'")
+        return {"posts": [dict(r) for r in rows], "total": total}
+    else:
+        sl = MEM_POSTS[offset:offset + limit]
+        return {"posts": sl, "total": len(MEM_POSTS)}
 
 @app.post("/posts", status_code=201)
-async def create_post(
-    post: PostCreate,
-    user = Depends(get_current_user),
-    pool = Depends(get_pool)
-):
-    # Модерация
-    mod = app.state.moderator.moderate(post.title + " " + post.body)
-    status_val = "approved" if mod.label == "approved" else \
-                 "suspicious" if mod.label == "suspicious" else "blocked"
+async def create_post(req: PostReq, user=Depends(get_user)):
+    mod = app.state.mod.moderate(req.title + " " + req.body)
+    status = ("approved"   if mod.label == "approved"   else
+              "suspicious" if mod.label == "suspicious" else "blocked")
+    pid = f"p{int(time.time()*1000)}"
 
-    post_id = f"p{int(time.time() * 1000)}"
-
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            await conn.execute("""
-                INSERT INTO posts (id, author_id, title, body, status, mod_level, mod_conf)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-            """, post_id, user["id"], post.title, post.body,
-                status_val, mod.level, float(mod.confidence))
-
-            # Теги
-            for tag_name in post.tags[:10]:
-                tag_name = tag_name.strip().lower()
-                if not tag_name:
-                    continue
-                tag_id = await conn.fetchval(
-                    "INSERT INTO tags(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id",
-                    tag_name
-                )
+    if app.state.use_db and db.pool:
+        async with db.pool.acquire() as conn:
+            async with conn.transaction():
                 await conn.execute(
-                    "INSERT INTO post_tags(post_id, tag_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
-                    post_id, tag_id
+                    "INSERT INTO posts(id,author_id,title,body,status,mod_level,mod_conf)"
+                    " VALUES($1,$2,$3,$4,$5,$6,$7)",
+                    pid, user["id"], req.title, req.body,
+                    status, mod.level, float(mod.confidence),
                 )
-
-            # Лог модерации
-            await conn.execute("""
-                INSERT INTO moderation_log (post_id, input_text, label, confidence, level, reasons)
-                VALUES ($1, $2, $3, $4, $5, $6)
-            """, post_id, post.title + " " + post.body,
-                mod.label, float(mod.confidence), mod.level,
-                list(mod.reasons) if hasattr(mod, 'reasons') else [])
-
-            # Обновляем счётчик постов пользователя
-            await conn.execute(
-                "UPDATE users SET posts_count = posts_count + 1 WHERE id=$1",
-                user["id"]
-            )
+                for tag in req.tags[:10]:
+                    tag = tag.strip().lower()
+                    if tag:
+                        tid = await conn.fetchval(
+                            "INSERT INTO tags(name) VALUES($1)"
+                            " ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id",
+                            tag,
+                        )
+                        await conn.execute(
+                            "INSERT INTO post_tags(post_id,tag_id) VALUES($1,$2)"
+                            " ON CONFLICT DO NOTHING",
+                            pid, tid,
+                        )
+    else:
+        MEM_POSTS.insert(0, {
+            "id": pid, "author": user["name"], "role": user["role"],
+            "title": req.title, "body": req.body,
+            "tags": req.tags, "likes_count": 0, "status": status,
+        })
 
     return {
-        "id": post_id,
-        "status": status_val,
-        "moderation": {
-            "label": mod.label,
-            "confidence": mod.confidence,
-            "level": mod.level
-        }
+        "id": pid, "status": status,
+        "moderation": {"label": mod.label, "confidence": mod.confidence, "level": mod.level},
     }
 
 @app.post("/posts/{post_id}/like")
-async def like_post(
-    post_id: str,
-    user = Depends(get_current_user),
-    pool = Depends(get_pool)
-):
-    async with pool.acquire() as conn:
-        existing = await conn.fetchrow(
+async def like_post(post_id: str, user=Depends(get_user)):
+    if app.state.use_db and db.pool:
+        exists = await db.pool.fetchrow(
             "SELECT 1 FROM likes WHERE user_id=$1 AND post_id=$2",
-            user["id"], post_id
+            user["id"], post_id,
         )
-        if existing:
-            await conn.execute(
+        if exists:
+            await db.pool.execute(
                 "DELETE FROM likes WHERE user_id=$1 AND post_id=$2",
-                user["id"], post_id
+                user["id"], post_id,
             )
-            await conn.execute(
-                "UPDATE posts SET likes_count = likes_count - 1 WHERE id=$1",
-                post_id
-            )
+            await db.pool.execute(
+                "UPDATE posts SET likes_count=likes_count-1 WHERE id=$1", post_id)
             return {"liked": False}
         else:
-            await conn.execute(
-                "INSERT INTO likes(user_id, post_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
-                user["id"], post_id
+            await db.pool.execute(
+                "INSERT INTO likes(user_id,post_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+                user["id"], post_id,
             )
-            await conn.execute(
-                "UPDATE posts SET likes_count = likes_count + 1 WHERE id=$1",
-                post_id
-            )
+            await db.pool.execute(
+                "UPDATE posts SET likes_count=likes_count+1 WHERE id=$1", post_id)
             return {"liked": True}
+    return {"liked": True, "note": "in-memory mode"}
 
 @app.post("/moderation/check")
-async def check_moderation(req: ModerationRequest):
-    mod = app.state.moderator.moderate(req.text)
-    return {
-        "label":      mod.label,
-        "confidence": mod.confidence,
-        "level":      mod.level,
-    }
+async def moderation_check(req: ModReq):
+    mod = app.state.mod.moderate(req.text)
+    return {"label": mod.label, "confidence": mod.confidence, "level": mod.level}
 
 @app.get("/recommendations/{user_id}")
-async def get_recommendations(
-    user_id: str,
-    top_k: int = 5,
-    pool = Depends(get_pool)
-):
-    # Получаем просмотренные посты пользователя
-    async with pool.acquire() as conn:
-        liked = await conn.fetch(
-            "SELECT post_id FROM likes WHERE user_id=$1 LIMIT 20",
-            user_id
-        )
-    liked_ids = [r["post_id"] for r in liked]
-
-    recs = app.state.recommender.recommend(user_id, liked_ids=liked_ids, top_k=top_k)
+async def recommendations(user_id: str, top_k: int = 5):
+    liked = []
+    if app.state.use_db and db.pool:
+        rows = await db.pool.fetch(
+            "SELECT post_id FROM likes WHERE user_id=$1 LIMIT 20", user_id)
+        liked = [r["post_id"] for r in rows]
+    recs = app.state.rec.recommend(user_id, liked_ids=liked, top_k=top_k)
     return {"user_id": user_id, "recommendations": recs}
 
 @app.get("/users")
-async def get_users(pool = Depends(get_pool)):
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            "SELECT id, name, role, posts_count, likes_count, is_anomalous FROM users ORDER BY posts_count DESC"
-        )
-    return {"users": [dict(r) for r in rows]}
+async def get_users():
+    if app.state.use_db and db.pool:
+        rows = await db.pool.fetch(
+            "SELECT id,name,role,posts_count,likes_count,is_anomalous"
+            " FROM users ORDER BY posts_count DESC")
+        return {"users": [dict(r) for r in rows]}
+    return {"users": [
+        {"id": u["id"], "name": u["name"], "role": u["role"],
+         "posts_count": u["posts"], "likes_count": u["likes"], "is_anomalous": False}
+        for u in MEM_USERS.values()
+    ]}
 
 @app.get("/stats")
-async def get_stats(pool = Depends(get_pool)):
-    async with pool.acquire() as conn:
-        stats = await conn.fetchrow("""
+async def stats():
+    if app.state.use_db and db.pool:
+        row = await db.pool.fetchrow("""
             SELECT
                 (SELECT COUNT(*) FROM posts WHERE status='approved') AS posts,
                 (SELECT COUNT(*) FROM users)                          AS users,
                 (SELECT COUNT(*) FROM likes)                          AS likes,
-                (SELECT COUNT(*) FROM tags)                           AS tags,
-                (SELECT ROUND(
-                    COUNT(*) FILTER (WHERE status='approved')::numeric /
-                    NULLIF(COUNT(*),0) * 100, 1
-                ) FROM posts)                                          AS moderation_pct
+                (SELECT ROUND(COUNT(*) FILTER (WHERE status='approved')::numeric
+                              / NULLIF(COUNT(*),0)*100,1) FROM posts) AS moderation_pct
         """)
-    return dict(stats)
+        return dict(row)
+    return {
+        "posts": len(MEM_POSTS), "users": len(MEM_USERS),
+        "likes": 0, "moderation_pct": 100.0,
+    }
