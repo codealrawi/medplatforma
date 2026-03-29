@@ -282,7 +282,7 @@ async function publish(){
   }
   document.getElementById('qt').value='';document.getElementById('qb').value='';document.getElementById('qtg').value='';
   document.getElementById('mp').style.display='none';
-  nav('feed');renderFeed();
+  nav('feed');await loadFeed();
   toast(res.label==='suspicious'?'⚠️ На проверку':'✅ Опубликовано!');
 }
 function runMod(){const t=document.getElementById('mt').value.trim();if(!t)return;showMR('mo',moderate(t));}
@@ -324,7 +324,55 @@ function renderTags(){
   document.getElementById('rp-tags').innerHTML=tags.map(t=>`<span class="tag">${t}</span>`).join('');
   document.getElementById('rp-stats').innerHTML=[['1248','публикаций'],['342','польз.'],['94%','мод.'],['50мс','откл.']].map(([v,l])=>`<div><div class="sv">${v}</div><div class="sl">${l}</div></div>`).join('');
 }
-function init(){renderFeed();renderRecs();renderUsers();renderTags();}
+async function init(){
+  await loadFeed();
+  await loadRecs();
+  renderUsers();
+  renderTags();
+}
+async function loadFeed(){
+  try{
+    const r=await fetch('/posts?limit=50');
+    if(r.ok){
+      const d=await r.json();
+      // Объединяем: сначала посты из БД, потом локальные (если есть новые)
+      const dbIds=new Set((d.posts||[]).map(p=>p.id));
+      const localNew=POSTS.filter(p=>!dbIds.has(p.id));
+      POSTS.length=0;
+      for(const p of [...(d.posts||[]),...localNew]){
+        POSTS.push({
+          id:p.id, author:p.author||p.author_id||'—',
+          role:p.role||'patient',
+          title:p.title, body:p.body,
+          tags:Array.isArray(p.tags)?p.tags.filter(Boolean):[],
+          likes:p.likes_count||p.likes||0,
+          status:p.status||'approved', liked:false
+        });
+      }
+    }
+  }catch(e){/* fallback: показываем локальные */}
+  renderFeed();
+}
+async function loadRecs(){
+  try{
+    const uid=cu?.id||'user1';
+    const r=await fetch('/recommendations/'+uid,{headers:tok?{'Authorization':'Bearer '+tok}:{}});
+    if(r.ok){
+      const d=await r.json();
+      if(d.recommendations&&d.recommendations.length){
+        RECS.length=0;
+        for(const rec of d.recommendations){
+          RECS.push({
+            title:rec.title||rec.item_id||'Публикация',
+            score:rec.score||0,
+            tag:rec.tag||'—'
+          });
+        }
+      }
+    }
+  }catch(e){/* fallback: локальные рекомендации */}
+  renderRecs();
+}
 </script>
 </body>
 </html>
