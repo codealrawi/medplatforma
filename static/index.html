@@ -186,15 +186,27 @@ function showMR(id,res){
   el.style.display='block';
   el.innerHTML=`<b>${M[res.label]}</b><br><small>Уровень: ${res.level} · Уверенность: ${(res.conf*100).toFixed(1)}%${res.reasons.length?' · '+[...new Set(res.reasons)].join(', '):''}</small><div class="cb"><div class="cf ${F[res.label]}" style="width:${res.conf*100}%"></div></div>`;
 }
-function login(){
+async function login(){
   const u=document.getElementById('lu').value,p=document.getElementById('lp').value;
-  const C={user1:{name:'Д-р Петров А.С.',role:'doctor'},user2:{name:'Мария Иванова',role:'patient'},admin:{name:'Администратор',role:'admin'}};
-  const P={user1:'doctor123',user2:'patient123',admin:'admin123'};
-  if(P[u]!==p){alert('Неверный логин/пароль');return;}
-  cu={id:u,...C[u]};
-  document.getElementById('auth').style.display='none';
-  document.getElementById('un').textContent=cu.name;
-  init();
+  try{
+    const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    if(!r.ok){alert('Неверный логин или пароль');return;}
+    const d=await r.json();
+    tok=d.token||'';
+    cu=d.user||{id:u,name:u,role:'patient'};
+    document.getElementById('auth').style.display='none';
+    document.getElementById('un').textContent=cu.name;
+    init();
+  }catch(e){
+    // fallback: локальная авторизация если API недоступен
+    const C={user1:{id:'user1',name:'Д-р Петров А.С.',role:'doctor'},user2:{id:'user2',name:'Мария Иванова',role:'patient'},admin:{id:'admin',name:'Администратор',role:'admin'}};
+    const P={user1:'doctor123',user2:'patient123',admin:'admin123'};
+    if(P[u]!==p){alert('Неверный логин/пароль');return;}
+    cu=C[u];tok='local-'+u;
+    document.getElementById('auth').style.display='none';
+    document.getElementById('un').textContent=cu.name;
+    init();
+  }
 }
 function nav(id){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('a'));
@@ -239,13 +251,35 @@ function renderModMetrics(){
 }
 function demo(){document.getElementById('qt').value='Как принимать антибиотики при бронхите?';document.getElementById('qb').value='Врач назначил амоксициллин 500мг. До или после еды? Есть ли побочные эффекты?';document.getElementById('qtg').value='антибиотики, пульмонология';}
 function checkMod(){const t=document.getElementById('qt').value+' '+document.getElementById('qb').value;if(!t.trim())return;showMR('mp',moderate(t));}
-function publish(){
+async function publish(){
   const ti=document.getElementById('qt').value.trim(),b=document.getElementById('qb').value.trim();
   if(!ti||!b){toast('Заполните заголовок и описание');return;}
-  const res=moderate(ti+' '+b);showMR('mp',res);
-  if(res.label==='blocked'){toast('⛔ Заблокировано');return;}
   const tags=document.getElementById('qtg').value.split(',').map(t=>t.trim()).filter(Boolean);
-  POSTS.unshift({id:'p'+(POSTS.length+1),author:cu?.name||'Вы',role:cu?.role||'patient',title:ti,body:b,tags,likes:0,status:res.label,liked:false});
+  // Сначала показываем локальный результат модерации
+  const res=moderate(ti+' '+b);showMR('mp',res);
+  if(res.label==='blocked'){toast('⛔ Заблокировано — пост не опубликован');return;}
+  // Отправляем в реальный API с токеном
+  if(tok && !tok.startsWith('local-')){
+    try{
+      const r=await fetch('/posts',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+        body:JSON.stringify({title:ti,body:b,tags})
+      });
+      if(r.status===401){toast('⛔ Сессия истекла — войдите заново');return;}
+      const d=await r.json();
+      // Добавляем в локальный список с реальным статусом от сервера
+      POSTS.unshift({id:d.id,author:cu?.name||'Вы',role:cu?.role||'patient',
+        title:ti,body:b,tags,likes:0,status:d.status,liked:false});
+    }catch(e){
+      // API недоступен — добавляем локально
+      POSTS.unshift({id:'p'+(POSTS.length+1),author:cu?.name||'Вы',role:cu?.role||'patient',
+        title:ti,body:b,tags,likes:0,status:res.label,liked:false});
+    }
+  }else{
+    POSTS.unshift({id:'p'+(POSTS.length+1),author:cu?.name||'Вы',role:cu?.role||'patient',
+      title:ti,body:b,tags,likes:0,status:res.label,liked:false});
+  }
   document.getElementById('qt').value='';document.getElementById('qb').value='';document.getElementById('qtg').value='';
   document.getElementById('mp').style.display='none';
   nav('feed');renderFeed();
