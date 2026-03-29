@@ -216,7 +216,7 @@ function moderate(t){
 }
 function showMR(id,res){
   const el=document.getElementById(id);
-  const M={approved:'✅ ОДОБРЕНО',suspicious:'⚠️ ПОДОЗРИТЕЛЬНО',blocked:'🚫 ЗАБЛОКИРОВАНО'};
+  const M={approved:'ОДОБРЕНО',suspicious:'ПОДОЗРИТЕЛЬНО',blocked:'ЗАБЛОКИРОВАНО'};
   const C={approved:'ma',suspicious:'ms',blocked:'mb2'};
   const F={approved:'fg2',suspicious:'fy',blocked:'fr'};
   el.className='mr '+C[res.label];
@@ -790,7 +790,7 @@ function renderCompetitors() {
     {name:'СпросиВрача',    ttfb:400, dom:1331, note:'N=1 · JavaScript Performance API'},
     {name:'DonorSearch',    ttfb:128, dom:791,  note:'N=1 · JavaScript Performance API'},
     {name:'Здоровье Mail',  ttfb:621, dom:913,  note:'N=1 · JavaScript Performance API'},
-    {name:'МедПлатформа ★', ttfb:50,  dom:50,   note:'N=10 · этот сервер · Timeweb Cloud'},
+    {name:'МедПлатформа', ttfb:50,  dom:50,   note:'N=10 · этот сервер · Timeweb Cloud'},
   ];
   const maxDom = Math.max(...COMP.map(c=>c.dom));
   document.getElementById('comp-out').innerHTML = `
