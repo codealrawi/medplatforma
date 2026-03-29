@@ -1,362 +1,307 @@
 """
-МедПлатформа — FastAPI + PostgreSQL
-Автор: Аль-Раве Мустафа Исам Табит, РГСУ, спец. 2.3.5
+МедПлатформа — FastAPI Backend с PostgreSQL
+Автор: Аль-Раве Мустафа Исам Табит · РГСУ · спец. 2.3.5
 """
+
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 import time, hashlib, secrets, os
-from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from datetime import datetime, timedelta
 
-from database import (
-    get_db, init_db, engine,
-    User, Post, PostTag, Comment, Like, ModerationLog, Recommendation
-)
 from services.moderation_service import ContentModerator
 from services.recommendation_service import HybridRecommender, generate_demo_data
+from services.load_testing import LoadTester, AnomalyDetector
+from database import create_pool, close_pool, get_pool, check_connection
 
 # ─── Приложение ──────────────────────────────────────────────────────────────
 app = FastAPI(
     title="МедПлатформа API",
-    description="Q&A-платформа для пациентов и врачей · PostgreSQL edition",
+    description="Q&A-платформа для пациентов и врачей. Диссертационный прототип.",
     version="2.0.0",
     docs_url="/docs",
+    redoc_url="/redoc",
 )
+
+# ─── Жизненный цикл (startup / shutdown) ─────────────────────────────────────
+@app.on_event("startup")
+async def startup():
+    await create_pool()
+    # Инициализируем ML-сервисы
+    app.state.moderator = ContentModerator()
+    app.state.moderator.train()
+    items, interactions = generate_demo_data()
+    app.state.recommender = HybridRecommender(alpha=0.4)
+    app.state.recommender.fit(items, interactions)
+    app.state.items_meta = {it["id"]: it for it in items}
+
+@app.on_event("shutdown")
+async def shutdown():
+    await close_pool()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 security = HTTPBearer(auto_error=False)
 
-# ─── ML-сервисы ──────────────────────────────────────────────────────────────
-moderator = ContentModerator()
-moderator.train()
-
-items, interactions = generate_demo_data()
-recommender = HybridRecommender(alpha=0.4)
-recommender.fit(items, interactions)
-
-TOKENS: dict[str, str] = {}   # token → user_id (in-memory, заменить на Redis в проде)
-
-# ─── Статический фронтенд ────────────────────────────────────────────────────
-_static = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-if os.path.exists(_static):
-    app.mount("/static", StaticFiles(directory=_static), name="static")
+# ─── Статический фронтенд ─────────────────────────────────────────────────────
+_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+if os.path.exists(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 @app.get("/app", include_in_schema=False)
 async def frontend():
-    f = os.path.join(_static, "index.html")
-    return FileResponse(f) if os.path.exists(f) else {"error": "frontend not found"}
+    index_path = os.path.join(_static_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse("<h2>🏥 Фронтенд не найден</h2>", status_code=404)
 
-# ─── Lifecycle ───────────────────────────────────────────────────────────────
-@app.on_event("startup")
-async def startup():
-    await init_db()
-    print("✓ БД подключена и инициализирована")
-
-@app.on_event("shutdown")
-async def shutdown():
-    await engine.dispose()
-
-# ─── Схемы ───────────────────────────────────────────────────────────────────
+# ─── Pydantic модели ──────────────────────────────────────────────────────────
 class LoginRequest(BaseModel):
     username: str
     password: str
 
 class PostCreate(BaseModel):
-    title: str
-    body: str
-    tags: List[str] = []
+    title: str = Field(..., min_length=5, max_length=500)
+    body:  str = Field(..., min_length=10)
+    tags:  List[str] = []
 
-class ModerateRequest(BaseModel):
-    text: str
+class ModerationRequest(BaseModel):
+    text: str = Field(..., min_length=1)
 
-class CommentCreate(BaseModel):
-    body: str
-
-# ─── Авторизация ─────────────────────────────────────────────────────────────
-def get_token(creds: HTTPAuthorizationCredentials = Depends(security)) -> Optional[str]:
-    return creds.credentials if creds else None
+# ─── Авторизация ──────────────────────────────────────────────────────────────
+# Простой in-memory кеш токенов (для прототипа)
+_tokens: dict = {}
 
 async def get_current_user(
-    token: str = Depends(get_token),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    if not token or token not in TOKENS:
-        raise HTTPException(status_code=401, detail="Требуется авторизация")
-    user = await db.get(User, TOKENS[token])
-    if not user:
-        raise HTTPException(status_code=401, detail="Пользователь не найден")
-    return user
+    creds: HTTPAuthorizationCredentials = Depends(security),
+    pool = Depends(get_pool)
+):
+    if not creds:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    token = creds.credentials
+    if token not in _tokens:
+        raise HTTPException(status_code=401, detail="Токен недействителен")
+    return _tokens[token]
 
-# ─── ЭНДПОИНТЫ ───────────────────────────────────────────────────────────────
+# ─── Эндпоинты ────────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def root():
-    return {"service": "МедПлатформа API", "version": "2.0.0", "db": "PostgreSQL", "docs": "/docs"}
+    return {
+        "service": "МедПлатформа API",
+        "version": "2.0.0",
+        "status": "running",
+        "database": "postgresql",
+        "docs": "/docs",
+        "app": "/app",
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 @app.get("/health")
-async def health(db: AsyncSession = Depends(get_db)):
-    try:
-        await db.execute(select(func.now()))
-        db_ok = True
-    except Exception:
-        db_ok = False
+async def health(pool = Depends(get_pool)):
+    db_ok = await check_connection()
     return {
         "status": "ok" if db_ok else "degraded",
-        "db": db_ok,
+        "database": db_ok,
         "moderator": True,
         "recommender": True,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.utcnow().isoformat()
     }
 
-# ── Аутентификация ────────────────────────────────────────────────────────────
 @app.post("/auth/login")
-async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.id == req.username))
-    user = result.scalar_one_or_none()
-    if not user or user.password_hash != hashlib.sha256(req.password.encode()).hexdigest():
+async def login(req: LoginRequest, pool = Depends(get_pool)):
+    password_hash = hashlib.sha256(req.password.encode()).hexdigest()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT id, name, role FROM users WHERE id=$1 AND password_hash=$2",
+            req.username, password_hash
+        )
+    if not user:
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     token = secrets.token_hex(32)
-    TOKENS[token] = user.id
-    return {"token": token, "user_id": user.id, "name": user.name, "role": user.role}
+    _tokens[token] = dict(user)
+    return {"token": token, "user": dict(user)}
 
-@app.post("/auth/logout")
-async def logout(token: str = Depends(get_token)):
-    if token in TOKENS:
-        del TOKENS[token]
-    return {"status": "ok"}
-
-# ── Пользователи ─────────────────────────────────────────────────────────────
-@app.get("/users")
-async def get_users(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-    return {"users": [
-        {"id": u.id, "name": u.name, "role": u.role,
-         "posts": u.posts_count, "likes": u.likes_count,
-         "anomalous": u.is_anomalous}
-        for u in users
-    ]}
-
-@app.get("/users/{user_id}")
-async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    return {"id": user.id, "name": user.name, "role": user.role,
-            "posts": user.posts_count, "likes": user.likes_count}
-
-# ── Публикации ────────────────────────────────────────────────────────────────
 @app.get("/posts")
 async def get_posts(
-    limit: int = 20, offset: int = 0,
-    status: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    limit: int = 20,
+    offset: int = 0,
+    pool = Depends(get_pool)
 ):
-    q = select(Post).offset(offset).limit(limit).order_by(Post.created_at.desc())
-    if status:
-        q = q.where(Post.status == status)
-    result = await db.execute(q)
-    posts = result.scalars().all()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                p.id, p.title, p.body, p.status,
+                p.likes_count, p.created_at,
+                u.id AS author_id, u.name AS author, u.role,
+                array_agg(t.name) FILTER (WHERE t.name IS NOT NULL) AS tags
+            FROM posts p
+            JOIN users u ON u.id = p.author_id
+            LEFT JOIN post_tags pt ON pt.post_id = p.id
+            LEFT JOIN tags t ON t.id = pt.tag_id
+            WHERE p.status = 'approved'
+            GROUP BY p.id, u.id
+            ORDER BY p.created_at DESC
+            LIMIT $1 OFFSET $2
+        """, limit, offset)
 
-    total = await db.scalar(select(func.count(Post.id)))
+        total = await conn.fetchval(
+            "SELECT COUNT(*) FROM posts WHERE status='approved'"
+        )
     return {
-        "posts": [_post_to_dict(p) for p in posts],
+        "posts": [dict(r) for r in rows],
         "total": total,
         "limit": limit,
-        "offset": offset,
+        "offset": offset
     }
-
-@app.get("/posts/{post_id}")
-async def get_post(post_id: str, db: AsyncSession = Depends(get_db)):
-    post = await db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=404, detail="Публикация не найдена")
-    return _post_to_dict(post)
 
 @app.post("/posts", status_code=201)
 async def create_post(
-    req: PostCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    post: PostCreate,
+    user = Depends(get_current_user),
+    pool = Depends(get_pool)
 ):
     # Модерация
-    mod = moderator.moderate(f"{req.title} {req.body}")
+    mod = app.state.moderator.moderate(post.title + " " + post.body)
+    status_val = "approved" if mod.label == "approved" else \
+                 "suspicious" if mod.label == "suspicious" else "blocked"
 
-    import uuid
-    post_id = f"p_{uuid.uuid4().hex[:8]}"
-    post = Post(
-        id=post_id,
-        author_id=current_user.id,
-        title=req.title,
-        body=req.body,
-        status=mod.label,
-        mod_conf=mod.confidence,
-        mod_level=mod.level,
-    )
-    db.add(post)
+    post_id = f"p{int(time.time() * 1000)}"
 
-    for tag in req.tags:
-        db.add(PostTag(post_id=post_id, tag=tag.strip()))
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("""
+                INSERT INTO posts (id, author_id, title, body, status, mod_level, mod_conf)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            """, post_id, user["id"], post.title, post.body,
+                status_val, mod.level, float(mod.confidence))
 
-    # Лог модерации
-    db.add(ModerationLog(
-        post_id=post_id,
-        text_hash=hashlib.sha256(f"{req.title} {req.body}".encode()).hexdigest()[:64],
-        label=mod.label, confidence=mod.confidence, level=mod.level,
-        reasons=", ".join(getattr(mod, "reasons", []))
-    ))
+            # Теги
+            for tag_name in post.tags[:10]:
+                tag_name = tag_name.strip().lower()
+                if not tag_name:
+                    continue
+                tag_id = await conn.fetchval(
+                    "INSERT INTO tags(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id",
+                    tag_name
+                )
+                await conn.execute(
+                    "INSERT INTO post_tags(post_id, tag_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+                    post_id, tag_id
+                )
 
-    current_user.posts_count += 1
-    await db.commit()
-    await db.refresh(post)
-    return {"post": _post_to_dict(post), "moderation": {"label": mod.label, "confidence": mod.confidence}}
+            # Лог модерации
+            await conn.execute("""
+                INSERT INTO moderation_log (post_id, input_text, label, confidence, level, reasons)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            """, post_id, post.title + " " + post.body,
+                mod.label, float(mod.confidence), mod.level,
+                list(mod.reasons) if hasattr(mod, 'reasons') else [])
+
+            # Обновляем счётчик постов пользователя
+            await conn.execute(
+                "UPDATE users SET posts_count = posts_count + 1 WHERE id=$1",
+                user["id"]
+            )
+
+    return {
+        "id": post_id,
+        "status": status_val,
+        "moderation": {
+            "label": mod.label,
+            "confidence": mod.confidence,
+            "level": mod.level
+        }
+    }
 
 @app.post("/posts/{post_id}/like")
 async def like_post(
     post_id: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    user = Depends(get_current_user),
+    pool = Depends(get_pool)
 ):
-    post = await db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=404)
-    existing = await db.execute(
-        select(Like).where(Like.user_id == current_user.id, Like.post_id == post_id)
-    )
-    if existing.scalar():
-        await db.execute(delete(Like).where(Like.user_id == current_user.id, Like.post_id == post_id))
-        post.likes = max(0, post.likes - 1)
-        liked = False
-    else:
-        db.add(Like(user_id=current_user.id, post_id=post_id))
-        post.likes += 1
-        liked = True
-    await db.commit()
-    return {"liked": liked, "likes": post.likes}
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT 1 FROM likes WHERE user_id=$1 AND post_id=$2",
+            user["id"], post_id
+        )
+        if existing:
+            await conn.execute(
+                "DELETE FROM likes WHERE user_id=$1 AND post_id=$2",
+                user["id"], post_id
+            )
+            await conn.execute(
+                "UPDATE posts SET likes_count = likes_count - 1 WHERE id=$1",
+                post_id
+            )
+            return {"liked": False}
+        else:
+            await conn.execute(
+                "INSERT INTO likes(user_id, post_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+                user["id"], post_id
+            )
+            await conn.execute(
+                "UPDATE posts SET likes_count = likes_count + 1 WHERE id=$1",
+                post_id
+            )
+            return {"liked": True}
 
-# ── Комментарии ───────────────────────────────────────────────────────────────
-@app.post("/posts/{post_id}/comments", status_code=201)
-async def add_comment(
-    post_id: str,
-    req: CommentCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    post = await db.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=404)
-    comment = Comment(post_id=post_id, author_id=current_user.id, body=req.body)
-    db.add(comment)
-    await db.commit()
-    return {"id": comment.id, "body": comment.body, "author": current_user.name}
-
-@app.get("/posts/{post_id}/comments")
-async def get_comments(post_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Comment).where(Comment.post_id == post_id).order_by(Comment.created_at)
-    )
-    comments = result.scalars().all()
-    return {"comments": [
-        {"id": c.id, "body": c.body, "author_id": c.author_id, "created_at": c.created_at.isoformat()}
-        for c in comments
-    ]}
-
-# ── Модерация ─────────────────────────────────────────────────────────────────
 @app.post("/moderation/check")
-async def check_moderation(req: ModerateRequest):
-    result = moderator.moderate(req.text)
+async def check_moderation(req: ModerationRequest):
+    mod = app.state.moderator.moderate(req.text)
     return {
-        "text":       req.text[:100],
-        "label":      result.label,
-        "confidence": result.confidence,
-        "level":      result.level,
+        "label":      mod.label,
+        "confidence": mod.confidence,
+        "level":      mod.level,
     }
 
-@app.get("/moderation/stats")
-async def moderation_stats(db: AsyncSession = Depends(get_db)):
-    total   = await db.scalar(select(func.count(ModerationLog.id)))
-    blocked = await db.scalar(select(func.count(ModerationLog.id)).where(ModerationLog.label == "blocked"))
-    return {
-        "total": total,
-        "blocked": blocked,
-        "approved": (total or 0) - (blocked or 0),
-        "metrics": moderator.evaluate(),
-    }
-
-# ── Рекомендации ──────────────────────────────────────────────────────────────
 @app.get("/recommendations/{user_id}")
 async def get_recommendations(
     user_id: str,
     top_k: int = 5,
-    db: AsyncSession = Depends(get_db)
+    pool = Depends(get_pool)
 ):
-    # Получаем ID постов которые пользователь уже видел (liked)
-    result = await db.execute(select(Like.post_id).where(Like.user_id == user_id))
-    liked_ids = [r[0] for r in result.all()]
-
-    recs = recommender.recommend(user_id, liked_ids=liked_ids, top_k=top_k)
-
-    # Обновляем таблицу рекомендаций
-    for rec in recs:
-        existing = await db.execute(
-            select(Recommendation).where(
-                Recommendation.user_id == user_id,
-                Recommendation.post_id == rec["item_id"]
-            )
+    # Получаем просмотренные посты пользователя
+    async with pool.acquire() as conn:
+        liked = await conn.fetch(
+            "SELECT post_id FROM likes WHERE user_id=$1 LIMIT 20",
+            user_id
         )
-        if not existing.scalar():
-            db.add(Recommendation(
-                user_id=user_id, post_id=rec["item_id"],
-                score=rec["score"],
-                cbf_score=rec.get("cbf_score", 0),
-                svd_score=rec.get("svd_score", 0),
-            ))
-    try:
-        await db.commit()
-    except Exception:
-        await db.rollback()
+    liked_ids = [r["post_id"] for r in liked]
 
-    return {"user_id": user_id, "recommendations": recs, "algorithm": "CBF+SVD hybrid α=0.4"}
+    recs = app.state.recommender.recommend(user_id, liked_ids=liked_ids, top_k=top_k)
+    return {"user_id": user_id, "recommendations": recs}
 
-# ── Статистика ────────────────────────────────────────────────────────────────
+@app.get("/users")
+async def get_users(pool = Depends(get_pool)):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, name, role, posts_count, likes_count, is_anomalous FROM users ORDER BY posts_count DESC"
+        )
+    return {"users": [dict(r) for r in rows]}
+
 @app.get("/stats")
-async def platform_stats(db: AsyncSession = Depends(get_db)):
-    posts_total = await db.scalar(select(func.count(Post.id)))
-    users_total = await db.scalar(select(func.count(User.id)))
-    approved    = await db.scalar(select(func.count(Post.id)).where(Post.status == "approved"))
-    blocked     = await db.scalar(select(func.count(Post.id)).where(Post.status == "blocked"))
-    comments    = await db.scalar(select(func.count(Comment.id)))
-    return {
-        "posts":     posts_total,
-        "users":     users_total,
-        "approved":  approved,
-        "blocked":   blocked,
-        "comments":  comments,
-        "mod_rate":  round((approved or 0) / max(posts_total or 1, 1) * 100, 1),
-    }
-
-# ─── Хелпер ──────────────────────────────────────────────────────────────────
-def _post_to_dict(p: Post) -> dict:
-    return {
-        "id":         p.id,
-        "author_id":  p.author_id,
-        "author":     p.author.name if p.author else p.author_id,
-        "role":       p.author.role if p.author else "unknown",
-        "title":      p.title,
-        "body":       p.body,
-        "status":     p.status,
-        "mod_conf":   p.mod_conf,
-        "likes":      p.likes,
-        "tags":       [t.tag for t in p.tags],
-        "created_at": p.created_at.isoformat() if p.created_at else None,
-    }
+async def get_stats(pool = Depends(get_pool)):
+    async with pool.acquire() as conn:
+        stats = await conn.fetchrow("""
+            SELECT
+                (SELECT COUNT(*) FROM posts WHERE status='approved') AS posts,
+                (SELECT COUNT(*) FROM users)                          AS users,
+                (SELECT COUNT(*) FROM likes)                          AS likes,
+                (SELECT COUNT(*) FROM tags)                           AS tags,
+                (SELECT ROUND(
+                    COUNT(*) FILTER (WHERE status='approved')::numeric /
+                    NULLIF(COUNT(*),0) * 100, 1
+                ) FROM posts)                                          AS moderation_pct
+        """)
+    return dict(stats)
