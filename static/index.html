@@ -80,7 +80,7 @@ input:focus,textarea:focus{border-color:#2E5090}textarea{min-height:80px;resize:
 <div style="font-size:22px">🏥</div>
 <h1>МедПлатформа</h1>
 <span class="badge">Q&A</span>
-<span class="badge" style="opacity:.6">v2.0 · Timeweb</span>
+<span class="badge" style="opacity:.6">v3.0 · Модерация расширена</span>
 <div class="usr" id="un"></div>
 </header>
 <div class="main">
@@ -116,59 +116,48 @@ input:focus,textarea:focus{border-color:#2E5090}textarea{min-height:80px;resize:
 <div id="recs-list"></div>
 </div>
 <div class="panel" id="p-mod">
-<div class="sec">🛡️ Модерация контента</div>
+<div class="sec">🛡️ Модерация контента <span style="font-size:11px;font-weight:400;color:#6B7280">· v3.0 · 4 уровня · 130+ паттернов</span></div>
 <div class="card">
 <textarea id="mt" rows="3" placeholder="Введите текст для классификации..."></textarea>
-<div style="display:flex;gap:8px;margin-top:8px">
+<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
 <button class="btn bp" onclick="runMod()">🔍 Классифицировать</button>
-<button class="btn" style="background:#E5E7EB;font-size:12px" onclick="mfill(1)">✓ Пример</button>
-<button class="btn" style="background:#E5E7EB;font-size:12px" onclick="mfill(0)">✗ Пример</button>
+<button class="btn" style="background:#E5E7EB;font-size:12px" onclick="mfill(1)">✓ Пример (одобрен)</button>
+<button class="btn" style="background:#E5E7EB;font-size:12px" onclick="mfill(0)">✗ Пример (заблок.)</button>
+<button class="btn" style="background:#E5E7EB;font-size:12px" onclick="mfill(2)">⚠ Пример (риск)</button>
 </div>
 <div class="mr" id="mo"></div>
 </div>
-<div class="card"><div class="sec" style="font-size:14px">Метрики</div><div id="mm"></div></div>
+<div class="card">
+<div class="sec" style="font-size:14px">📊 Метрики модели v3.0</div>
+<div id="mm"></div>
+</div>
+<div class="card" style="margin-top:10px">
+<div class="sec" style="font-size:14px">📋 Тест на примерах</div>
+<button class="btn bp" style="margin-bottom:10px" onclick="runBatchTest()">▶ Запустить батч-тест (10 примеров)</button>
+<div id="batch-results"></div>
+</div>
 </div>
 <div class="panel" id="p-perf">
-<div class="sec">📊 Тесты производительности · Реальные замеры прямо сейчас</div>
-
-<!-- Кнопки запуска -->
+<div class="sec">📊 Тесты производительности</div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
   <button class="btn bp" id="btn-full" onclick="runTests('full')">▶ Полный тест (N=10)</button>
   <button class="btn" style="background:#E5E7EB" id="btn-quick" onclick="runTests('quick')">⚡ Быстрый (N=3)</button>
-  <button class="btn" style="background:#E5E7EB" id="btn-load" onclick="runTests('load')">🔥 Нагрузочный (concurrent)</button>
+  <button class="btn" style="background:#E5E7EB" id="btn-load" onclick="runTests('load')">🔥 Нагрузочный</button>
   <span id="test-status" style="font-size:12px;color:#6B7280;align-self:center"></span>
 </div>
-
-<!-- Прогресс-бар -->
 <div id="test-progress" style="display:none;margin-bottom:10px">
   <div style="height:4px;background:#E5E7EB;border-radius:2px;overflow:hidden">
     <div id="progress-bar" style="height:100%;background:#2E5090;width:0%;transition:width .3s"></div>
   </div>
   <div id="progress-label" style="font-size:11px;color:#6B7280;margin-top:4px"></div>
 </div>
-
-<!-- Таблица результатов API -->
 <div id="api-results" style="margin-bottom:12px">
-  <p style="color:#6B7280;font-size:13px">Нажмите «Полный тест» — измерим реальное время ответа каждого эндпоинта прямо сейчас.</p>
+  <p style="color:#6B7280;font-size:13px">Нажмите «Полный тест» для измерения времени ответа каждого эндпоинта.</p>
 </div>
-
-<!-- Полный цикл страницы -->
-<div id="page-cycle" style="display:none" class="card" style="background:#EEF3FA">
-</div>
-
-<!-- Нагрузочный тест (concurrent) -->
-<div id="load-results" style="display:none;margin-top:10px">
-</div>
-
-<!-- Сравнение с конкурентами (реальные данные 29.03.2026) -->
+<div id="page-cycle" style="display:none" class="card"></div>
+<div id="load-results" style="display:none;margin-top:10px"></div>
 <div class="card" style="margin-top:10px">
-  <div class="sec" style="font-size:14px">🌐 Сравнение с конкурентами <span style="font-size:11px;font-weight:400;color:#6B7280">(замеры из браузера · Москва · 29.03.2026)</span></div>
-  <div id="comp-out"></div>
-</div>
-
-<!-- Статистика платформы (из /stats) -->
-<div class="card" style="margin-top:10px">
-  <div class="sec" style="font-size:14px">📈 Статистика платформы <span style="font-size:11px;font-weight:400;color:#6B7280">(из базы данных в реальном времени)</span></div>
+  <div class="sec" style="font-size:14px">📈 Статистика платформы</div>
   <div id="platform-stats"><p style="color:#6B7280;font-size:12px">Загрузка...</p></div>
 </div>
 </div>
@@ -191,12 +180,15 @@ input:focus,textarea:focus{border-color:#2E5090}textarea{min-height:80px;resize:
 </div>
 <script>
 const BASE='';
-// ════════════════════════════════════════════════════════════════
-// МНОГОУРОВНЕВАЯ СИСТЕМА МОДЕРАЦИИ МЕДИЦИНСКОГО КОНТЕНТА v2.0
-// ════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════
-// МНОГОУРОВНЕВАЯ СИСТЕМА МОДЕРАЦИИ v2.0
+// МНОГОУРОВНЕВАЯ СИСТЕМА МОДЕРАЦИИ МЕДИЦИНСКОГО КОНТЕНТА v3.0
+// +15 паттернов L1 (заговоры, чудо-лечение, самолечение)
+// +22 паттерна L2 (псевдонаука, дозировка, ложная статистика)
+// +14 паттернов L3 (манипуляции, дефицит, конспирология)
+// +12 паттернов L4 (интернет-аптеки, соцсети, доставка)
+// +10 reducers (доказательная медицина, ВОЗ/FDA, самолечение ↓)
+// +75 MED_TERMS (диагностика, специализации, препараты, лаб.)
 // ════════════════════════════════════════════════════════════════
 
 // ── Уровень 1: Жёсткие паттерны (+0.40) ─────────────────────────────────────
@@ -207,7 +199,16 @@ const L1_DANGER=[
   /официальн\S*\s+медицин\S*\s+(лжёт|лжет|скрыва|обман)/i,
   /правда\s+о\s+(рак|онкологи|диабет|ВИЧ|СПИД)\S*\s+(скрыва|запрещ)/i,
   /секретн\S*\s+(рецепт|метод|средство|лечени)/i,
-
+  /минздрав\S*\s+(скрыва|лжёт|лжет|обман|замалчива)/i,
+  /фармацевтическ\S*\s+(мафи|заговор|картел)/i,
+  /ВОЗ\s+(скрыва|запрет|обман|лжёт)/i,
+  /правительств\S*\s+(скрыва|запрет).{0,30}(лечени|болезн|вирус)/i,
+  /большая\s+фарма\S*\s+(скрыва|обман|не\s+хочет)/i,
+  /лекарств\S*\s+(специально\s+)?(создан|разработан).{0,30}(зависимост|прибыл)/i,
+  /вакцин\S*\s+(чип|микрочип|5g|яд|отрав|смерт)/i,
+  /коронавирус\S*\s+(выдум|фальш|обман|заговор|не\s+существу)/i,
+  /медицин\S*\s+(элит|мафи|кланов?|заговор).{0,20}(скрыва|прячет|утаива)/i,
+  /онкологи\S*\s+(бизнес|зарабатыва)\S*.{0,30}(скрыва|не\s+лечат|не\s+хотят)/i,
   // Чудесное излечение
   /гарантир\S*\s+(излечени|выздоровлени|избавлени)/i,
   /100\s*%\s*(гарантия|результат|излечени|эффект)/i,
@@ -216,13 +217,26 @@ const L1_DANGER=[
   /навсегда\s+(вылечит|вылечи)\S*\s+(рак|диабет|гипертони|артрит|астм)/i,
   /фармацевт\S*\s+(скрыва|скрыл)/i,
   /мгновенн\S*\s+(излечени|выздоровлени)/i,
-
+  /полность\S*\s+вылечи\S*\s+(рак|онкологи|ВИЧ|СПИД|гепатит)/i,
+  /без\s+(операции|химиотерапи|лекарств)\S*\s+(вылечи|изба|прошл)/i,
+  /природн\S*\s+(средств|метод)\S*\s+(вылечи|изба|побежда)\S*\s+(рак|онкологи)/i,
+  /за\s+\d+\s+(дн|нед|мес)\S*\s+(навсегда\s+)?(вылечи|изба)\S*\s+(от\s+)?(рак|онкологи|диабет|гипертони)/i,
+  /гарантиру\S*\s+(результат|выздоровлени|улучшени)\s+за\s+\d/i,
+  /уникальн\S*\s+(формул|состав|метод)\S*\s+(излечива|вылечива|уничтожа)\S*\s+(рак|опухол)/i,
+  /активиру\S*\s+(самоисцелени|иммунитет)\S*\s+(и\s+)?(уничтожа|побежда)\S*\s+(рак|вирус)/i,
   // Опасное самолечение
   /лечи(ть|те|сь)?\s+без\s+(врач|доктор|медик|больниц)/i,
   /врач\S*\s+не\s+нужн/i,
   /забудьте?\s+о\s+врач/i,
   /лечи\S*\s+(рак|онкологи|ВИЧ|СПИД)\s+(дома|самостоятельно|без)/i,
   /сами?\s+вылечи\S*\s+(рак|онкологи|ВИЧ|СПИД|инсульт|инфаркт)/i,
+  /сам\S*\s+(удали|вырежи|прооперируй)\S*\s+(опухол|нарост|родинк|зуб)/i,
+  /не\s+иди\S*\s+в\s+(больниц|скорую|клиник|поликлиник)/i,
+  /больниц\S*\s+(убива|вредят|заражают|опасн)/i,
+  /скорую\s+(не\s+вызыва|не\s+нужн|бесполезн)/i,
+  /промывани\S*\s+(желудка|кишечника)\s+(дома|самостоятельно|без\s+врач)/i,
+  /сам\S*\s+(поставь|введи|вколи)\S*\s+(инъекци|укол|капельниц)\S*\s+без/i,
+  /народн\S*\s+медицин\S*\s+(лучше|эффективнее|вместо)\s+(официальн|традиционн)/i,
 ];
 
 // ── Уровень 2: Паттерны риска (+0.20) ────────────────────────────────────────
@@ -233,7 +247,6 @@ const L2_RISK=[
   /врачи?\s+не\s+(предупрежда|говор|сообща)\s+.{0,30}(побочн|эффект|вред)/i,
   /сам\s+(поставил|поставила)\s+себе\s+диагноз/i,
   /не\s+пойду\s+(к\s+)?(врач|доктор)/i,
-
   /врачи?\s+(скрыва|умалчива).{0,30}(побочн|эффект|информац)/i,
   /врачи?\s+не\s+(говор|сказыва|предупрежда)/i,
   // Отказ от лечения
@@ -243,20 +256,41 @@ const L2_RISK=[
   /не\s+буду?\s+(принимать|пить|колоть)\s+(назначен|выписан)/i,
   /отказ\S*\s+от\s+(химиотерапи|инсулин|антибиотик|гормон)/i,
   /отмен\S*\s+(лечени|терапи|препарат)/i,
-
   // Нереальные сроки
   /за\s+[1-7]\s+(день|дня|дней)\s+(вылечи|избавит|пройд|проход)/i,
   /за\s+(сутки|ночь|час)\s+(вылечи|избавит|уйд|исчезн)/i,
   /быстро\S*\s+излечени\S*\s+(рак|диабет|гипертони)/i,
-
   // Альтернативная медицина против официальной
   /народн\S*\s+(средства?|метод|рецепт)\S*\s+(вместо|заменит|лучше).{0,30}(лекарств|врач|медицин)/i,
   /трав\S*\s+помогает?\s+лучше\s+.{0,20}(таблет|лекарств|врач)/i,
-
   // Самодиагностика
   /сами?\s+(поставил|поставила|ставлю|ставит)\s+(себе\s+)?(диагноз|диагнос)/i,
   /я\s+(поставил|поставила|ставлю)\s+себе\s+(диагноз|диагнос)/i,
   /самодиагностик/i,
+  // Псевдонаучные методы
+  /биорезонансн\S*\s+(терапи|лечени|диагностик)\S*\s+(вылечива|помога|лучше)/i,
+  /гомеопати\S*\s+(вылечива|побежда|эффективнее\s+чем\s+(антибиотик|таблетк))/i,
+  /экстрасенс\S*\s+(вылечи|диагностирова|определи)/i,
+  /цел\S*\s+(биополе|аур|чакр)\S*\s+(вылечи|восстанови|нормализова)/i,
+  /магнитн\S*\s+(браслет|кольц|устройств)\S*\s+(вылечива|лечит|помога)\S*\s+(гипертони|диабет|артрит)/i,
+  /детоксикаци\S*\s+(вылечива|очища\S*\s+(от\s+)?(рак|болезн|токсин))/i,
+  /ощелачивани\S*\s+(вылечива|победи|уничтожа)\S*\s+(рак|болезн)/i,
+  // Опасная дозировка
+  /увеличь\S*\s+(дозу|дозировку)\S*\s+сам\S*\s+без\s+врач/i,
+  /принима\S*\s+(больше|удвой|утрой)\S*\s+(дозу|дозировку)\S*\s+(лекарств|препарат)/i,
+  /превышени\S*\s+дозировк\S*\s+(не\s+страшн|нормальн|помогает)/i,
+  /одновременн\S*\s+(принима\S*)\s+\d+\s+(и\s+более)?\s+(препарат|лекарств|таблет)/i,
+  // Ненадёжные источники
+  /читал\S*\s+(в\s+интернете|на\s+форуме|в\s+соцсет)\S*\s+(что|будто)\s+(вылечива|помога|спаса)/i,
+  /сосед\S*\s+(вылечил|советует|рекомендует)\S*\s+(и\s+мне|вместо\s+врача|вместо\s+таблеток)/i,
+  /знакомый\S*\s+(врач|медик)\S*\s+(сказал|говорит)\S*\s+неофициальн/i,
+  // Неодобренные препараты
+  /БАД\S*\s+(вылечива|заменит|лучше\s+чем)\s+(лекарств|таблетк|антибиотик)/i,
+  /биодобавк\S*\s+(вылечива|помога)\S*\s+(от\s+)?(рак|диабет|гипертони)/i,
+  /не\s+одобрен\S*\s+(FDA|минздрав|регулятор)\S*\s+(но\s+помога|но\s+эффективн)/i,
+  // Ложная статистика
+  /\d+\s*%\s*(пациентов|больных|людей)\s+(вылечились|выздоровели)\s+(с\s+помощью|благодаря)\s+(народн|трав|БАД)/i,
+  /статистик\S*\s+(скрыва|фальсифициров|занижа)\S*\s+(смертност|осложнени|побочн)/i,
 ];
 
 // ── Уровень 3: Усилители риска (+0.12) ───────────────────────────────────────
@@ -269,6 +303,20 @@ const L3_AMPLIFIERS=[
   /власти\s+(скрыва|запрет|запрещ)/i,
   /перейди(те)?\s+(по\s+ссылке|на\s+сайт)/i,
   /закажи\s+у\s+(нас|меня)/i,
+  /только\s+(сейчас|сегодня|до\s+\d+)\s+(акция|скидка|предложени)/i,
+  /осталось\s+(мало|несколько|ограниченн)\S*\s+(мест|упаков|доз)/i,
+  /тысячи\s+(людей|пациентов|больных)\s+(уже|вылечились|спаслись|избавились)/i,
+  /не\s+упусти\S*\s+(шанс|возможность|результат)/i,
+  /это\s+(твой|ваш)\s+последний\s+шанс/i,
+  /врачи?\s+(боятся|не\s+хотят|стараются\s+не)\s+(чтобы\s+вы\s+узнали|этого)/i,
+  /распространи\S*\s+(информацию|эту\s+ссылку)\s+(пока\s+не\s+удалили|срочно)/i,
+  /поделис\S*\s+(пока|быстро)\s+(не\s+удалили|не\s+запретили)/i,
+  /мне\s+помогло\s+(и\s+)?(тебе|вам)\s+точно\s+(поможет|помог)/i,
+  /проверено\s+(лично|на\s+себе|мной)\s+(гарантирую|100%)/i,
+  /(пиши|звони|пишите)\s+(в\s+лс|в\s+личку|в\s+директ)\s+(расскажу|объясню|дам\s+контакт)/i,
+  /секретн\S*\s+(метод|рецепт|средство)\S*\s+(которы[йе]\s+)?(удалят|скроют|запретят)/i,
+  /пока\s+(цензура|власти|фарма)\s+(не\s+удалил|не\s+заблокировал|не\s+запретил)/i,
+  /это\s+(запрещён|скрытый|секретный)\s+(метод|способ|рецепт)/i,
 ];
 
 // ── Уровень 4: Спам (+0.18) ──────────────────────────────────────────────────
@@ -279,6 +327,18 @@ const L4_SPAM=[
   /https?:\/\/\S+/i,
   /@[a-zA-Z0-9_]{3,}/,
   /(кредит|займ|рассрочка).{0,20}(лечени|медицин)/i,
+  /(инстаграм|instagram|vk\.com|вконтакте).{0,30}(закажи|купи|узнай)/i,
+  /\b(бесплатн\S+\s+консультаци|бесплатн\S+\s+анализ)\b.{0,30}(запишис|звоните|пишите)/i,
+  /доставк\S*\s+(по\s+всей\s+России|по\s+всему\s+миру|курьером).{0,20}(лекарств|препарат|средств)/i,
+  /интернет[-\s]аптек\S*\s+(без\s+рецепт|дёшево|дешево|скидк)/i,
+  /без\s+рецепт\S*\s+(купить|заказать|доступно|в\s+наличии)/i,
+  /сильнодейству\S*\s+(препарат|средств|таблетк)\S*\s+(без\s+рецепт|онлайн|курьер)/i,
+  /(промокод|promo|скидка\s+\d+%|купон).{0,30}(аптек|медицин|препарат)/i,
+  /www\.[a-zA-Z0-9-]+\.(ru|com|org|рф).{0,10}(аптек|медицин|препарат|здоров)/i,
+  /заказывай\S*\s+(напрямую|у\s+меня|без\s+посредников).{0,20}(лекарств|препарат)/i,
+  /наложенн\S*\s+(платёж|оплата).{0,20}(лекарств|препарат|витамин|бад)/i,
+  /лечебн\S*\s+(крем|мазь|бальзам|гель|капл)\S*\s+(заказ|купить|скидка)\b/i,
+  /реклам\S*\s+(препарат|лекарств|средств)\S*\s+(от\s+\d+\s+руб|дёшево|оптом)/i,
 ];
 
 // ── Снизители риска (-0.12 каждый) ───────────────────────────────────────────
@@ -291,12 +351,57 @@ const RISK_REDUCERS=[
   /доказательн\S*\s+медицин/i,
   /согласно\s+(исследовани|рекомендаци|протокол)/i,
   /после\s+(осмотра|консультации)\s+врач/i,
+  /рекомендую\s+(обратиться|проконсультироваться)\s+к\s+врач/i,
+  /обязательно\s+(сходи(те)?|обратись|проконсультируйся)\s+(к\s+)?(врач|специалист)/i,
+  /не\s+занимайтесь?\s+самолечени/i,
+  /это\s+(не\s+замена|не\s+заменяет)\s+(визиту|приёму|назначению)\s+врач/i,
+  /данна\S*\s+информаци\S*\s+(носит\s+)?(ознакомительн|справочн|общ)\S*\s+характер/i,
+  /перед\s+(применением|приёмом|использованием)\s+(проконсультируйтесь|обратитесь)\s+к\s+врач/i,
+  /(рандомизирован\S*|двойное\s+слепое|метаанализ|систематическ\S*\s+обзор)/i,
+  /доказательная\s+(база|медицина)/i,
+  /официальн\S*\s+(протокол|рекомендаци|стандарт)\s+(лечени|терапи|диагностик)/i,
+  /(ВОЗ|Минздрав|FDA|EMA)\s+(рекомендует|одобрил|утвердил)/i,
 ];
 
-// ── Медтермины ────────────────────────────────────────────────────────────────
-const MED_TERMS=['диагноз','симптом','лечение','терапия','препарат','врач','доктор','пациент','анализ','операция','реабилитация','антибиотик','дозировка','диабет','кардиология','педиатрия','неврология','хирургия','инфаркт','инсульт','гипертония','аллергия','астма','артрит','гастрит','пневмония','бронхит','мрт','узи','рентген','биопсия','гемоглобин','давление','пульс','температура','иммунитет','вакцинация','прививка','рецепт','назначение','консультация','госпитализация','хронический','острый','ремиссия','рецидив','метастаз','биохимия'];
+// ── Медицинские термины ───────────────────────────────────────────────────────
+const MED_TERMS=[
+  // Базовые
+  'диагноз','симптом','лечение','терапия','препарат','врач','доктор','пациент',
+  'анализ','операция','реабилитация','антибиотик','дозировка','диабет',
+  'кардиология','педиатрия','неврология','хирургия','инфаркт','инсульт',
+  'гипертония','аллергия','астма','артрит','гастрит','пневмония','бронхит',
+  'мрт','узи','рентген','биопсия','гемоглобин','давление','пульс','температура',
+  'иммунитет','вакцинация','прививка','рецепт','назначение','консультация',
+  'госпитализация','хронический','острый','ремиссия','рецидив','метастаз','биохимия',
+  // Диагностика
+  'эхокардиография','допплерография','флюорография','маммография','колоноскопия',
+  'гастроскопия','цистоскопия','эндоскопия','лапароскопия','томография',
+  'сцинтиграфия','электрокардиограмма','электроэнцефалография','спирометрия',
+  // Специализации
+  'эндокринология','гематология','пульмонология','нефрология','урология',
+  'гинекология','офтальмология','дерматология','психиатрия','онкология',
+  'иммунология','ревматология','гастроэнтерология','гепатология','флебология',
+  'травматология','ортопедия','анестезиология','реаниматология','фтизиатрия',
+  // Препараты и фармакология
+  'антикоагулянт','диуретик','статин','инсулин','антидепрессант','транквилизатор',
+  'нейролептик','антиконвульсант','кортикостероид','иммуносупрессор',
+  'антиагрегант','бета-блокатор','ингибитор','антагонист','агонист',
+  // Лабораторные показатели
+  'лейкоцит','эритроцит','тромбоцит','гематокрит','холестерин','триглицерид',
+  'глюкоза','креатинин','билирубин','фибриноген','протромбин','ферритин',
+  'трансаминаза','амилаза','липаза','тиреотропин','кортизол',
+  // Патологии
+  'атеросклероз','тромбоз','эмболия','аритмия','стенокардия','ишемия',
+  'анемия','лейкоз','лимфома','меланома','карцинома','саркома','аденома',
+  'цирроз','гепатит','холецистит','панкреатит','колит','энтерит','нефрит',
+  'пиелонефрит','цистит','простатит','эндометриоз','фиброма','полип',
+  // Процедуры
+  'химиотерапия','иммунотерапия','таргетная','паллиативная','трансплантация',
+  'резекция','ампутация','дренирование','катетеризация','пункция',
+  'инфузия','трансфузия','диализ','физиотерапия',
+];
 
-
+// ── Функция модерации ─────────────────────────────────────────────────────────
 function moderate(text){
   const reasons=[];let risk=0;
   const t=text;
@@ -337,7 +442,7 @@ function moderate(text){
   const words=(t.toLowerCase().match(/[а-яёa-z]+/g)||[]);
   const medCount=words.filter(w=>MED_TERMS.includes(w)).length;
   const medRatio=medCount/Math.max(words.length,1);
-  if(medRatio<0.03&&words.length>8){reasons.push({type:'off-topic',label:'Нет медтерминов',match:''});risk+=0.08;}
+  if(medRatio<0.03&&words.length>8){reasons.push({type:'off-topic',label:'Мало медтерминов',match:''});risk+=0.08;}
   if(medRatio>0.15) risk-=0.05;
   if(words.length<5){reasons.push({type:'short',label:'Слишком короткий текст',match:''});risk+=0.05;}
 
@@ -362,7 +467,7 @@ function moderate(text){
          med_ratio:+medRatio.toFixed(3),reducers};
 }
 
-
+// ── Отображение результата ────────────────────────────────────────────────────
 function showMR(id,res){
   const el=document.getElementById(id);if(!el)return;
   const ICONS={approved:'✅',suspicious:'⚠️',blocked:'🚫'};
@@ -399,4 +504,305 @@ function showMR(id,res){
   ${reasonsHtml}${reducerHtml}`;
 }
 
->
+// ── Инициализация метрик ──────────────────────────────────────────────────────
+function initMetrics(){
+  const el=document.getElementById('mm');if(!el)return;
+  const stats={
+    'L1 — Опасная дезинформация':{count:L1_DANGER.length,color:'#DC3545',w:'+0.40'},
+    'L2 — Ненадёжные утверждения':{count:L2_RISK.length,color:'#FD7E14',w:'+0.20'},
+    'L3 — Манипулятивный язык':{count:L3_AMPLIFIERS.length,color:'#856404',w:'+0.12'},
+    'L4 — Спам / реклама':{count:L4_SPAM.length,color:'#6C757D',w:'+0.18'},
+    'Снизители риска':{count:RISK_REDUCERS.length,color:'#198754',w:'−0.12'},
+    'Медицинские термины':{count:MED_TERMS.length,color:'#4472C4',w:'словарь'},
+  };
+  const maxC=Math.max(...Object.values(stats).map(s=>s.count));
+  el.innerHTML=Object.entries(stats).map(([k,v])=>`
+    <div class="bar-r">
+      <div class="bl" style="color:${v.color};font-weight:600">${v.w}</div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:#374151;margin-bottom:2px">${k}</div>
+        <div class="bb"><div class="bf" style="background:${v.color};width:${Math.round(v.count/maxC*100)}%">${v.count}</div></div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Батч-тест на 10 примерах ──────────────────────────────────────────────────
+const BATCH_CASES=[
+  {text:'После инфаркта важна кардиореабилитация. Первые 6 недель — ограниченная физическая активность, диета. Обязательно проконсультируйтесь с врачом.',expected:'approved'},
+  {text:'Врачи скрывают правду о раке! Фармацевтическая мафия не хочет, чтобы вы знали о чудо-средстве, которое навсегда вылечит онкологию за 3 дня!',expected:'blocked'},
+  {text:'Как принимать метформин при диабете 2 типа? Врач назначил 500мг. Когда лучше принимать — до или после еды?',expected:'approved'},
+  {text:'Лечите рак дома без врачей! Природные методы побеждают онкологию. Врачи не нужны — это скрытый секрет, который скоро запретят!',expected:'blocked'},
+  {text:'У меня гастрит, назначили омепразол. Согласно рекомендациям врача принимаю по утрам. Есть ли побочные эффекты?',expected:'approved'},
+  {text:'Биорезонансная терапия вылечивает лучше антибиотиков! Читал на форуме, что помогает. Сосед вылечился вместо таблеток.',expected:'suspicious'},
+  {text:'Купи наш БАД без рецепта! Доставка по всей России. 100% гарантия. Пиши в личку, расскажу секретный метод. Скидка 30% промокод HEALTH',expected:'blocked'},
+  {text:'Профилактика ОРВИ: закаливание, проветривание, промывание носа физраствором. Вакцинация согласно протоколу Минздрава.',expected:'approved'},
+  {text:'Не иди в больницу — они там заражают! Увеличь дозу сам без врача. Скорую не вызывай, это бесполезно.',expected:'blocked'},
+  {text:'Перед применением проконсультируйтесь с врачом. Данная информация носит ознакомительный характер и не заменяет визит к специалисту.',expected:'approved'},
+];
+
+function runBatchTest(){
+  const el=document.getElementById('batch-results');if(!el)return;
+  let correct=0;
+  const rows=BATCH_CASES.map((c,i)=>{
+    const res=moderate(c.text);
+    const ok=res.label===c.expected;
+    if(ok)correct++;
+    const ICONS={approved:'✅',suspicious:'⚠️',blocked:'🚫'};
+    const bg=ok?'#D4EDDA':'#FDECEA';
+    const border=ok?'#A7D7B8':'#F5BDBB';
+    return`<div style="border:1px solid ${border};background:${bg};border-radius:6px;padding:8px;margin-bottom:6px;font-size:11px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+        <b>#${i+1}</b>
+        <span>${ICONS[res.label]} ${res.label.toUpperCase()}</span>
+        <span style="color:#6B7280">ожидалось: ${c.expected}</span>
+        <span style="margin-left:auto;font-weight:700;color:${ok?'#155724':'#B71C1C'}">${ok?'✓ Верно':'✗ Ошибка'}</span>
+      </div>
+      <div style="color:#374151;margin-bottom:2px">"${c.text.slice(0,80)}..."</div>
+      <div style="color:#6B7280">Риск: ${(res.risk*100).toFixed(0)}% · Уверенность: ${(res.confidence*100).toFixed(1)}%</div>
+    </div>`;
+  });
+  const acc=(correct/BATCH_CASES.length*100).toFixed(0);
+  el.innerHTML=`<div style="background:#EEF3FA;border-radius:8px;padding:10px;margin-bottom:10px;font-weight:700;color:#1B2A4A">
+    Точность: ${acc}% (${correct}/${BATCH_CASES.length} верно)
+    <div class="cb" style="margin-top:6px"><div class="cf fg2" style="width:${acc}%"></div></div>
+  </div>`+rows.join('');
+}
+
+// ── Примеры для модерации ─────────────────────────────────────────────────────
+const DEMO_TEXTS={
+  good:'После инфаркта миокарда важна кардиореабилитация. Первые 6 недель рекомендована ограниченная физическая активность, диета с ограничением соли. Врач назначил бета-блокаторы и статины согласно клиническим протоколам.',
+  bad:'Врачи скрывают правду! Фармацевтическая мафия не хочет, чтобы вы знали о чудо-средстве, которое навсегда вылечит рак за 3 дня дома без врачей. Пишите в личку, расскажу секретный метод пока не удалили! Доставка без рецепта.',
+  risk:'У меня диабет 2 типа, поставил себе диагноз сам по симптомам в интернете. Читал на форуме, что биорезонансная терапия вылечивает лучше, чем таблетки. Сосед советует увеличить дозу без врача.',
+};
+function mfill(t){
+  const keys=['bad','good','risk'];
+  document.getElementById('mt').value=DEMO_TEXTS[keys[t]]||DEMO_TEXTS.good;
+}
+
+// ── Вспомогательные функции UI ────────────────────────────────────────────────
+let _token=null,_user=null;
+const MEM_POSTS_LOCAL=[
+  {id:'p1',author:'Д-р Петров А.С.',role:'doctor',title:'Реабилитация после инфаркта миокарда',body:'После инфаркта важна кардиореабилитация. Первые 6 недель — ограниченная физическая активность, диета с ограничением соли.',tags:['кардиология','реабилитация'],likes_count:34,status:'approved'},
+  {id:'p2',author:'Мария Иванова',role:'patient',title:'Как принимать метформин при диабете 2 типа?',body:'Врач назначил метформин 500мг. Когда лучше принимать — до или после еды? Есть ли побочные эффекты?',tags:['диабет','препараты'],likes_count:12,status:'approved'},
+  {id:'p3',author:'Д-р Семёнова Е.В.',role:'doctor',title:'Профилактика ОРВИ у детей',body:'Закаливание, проветривание, промывание носа физраствором и вакцинация от гриппа.',tags:['педиатрия','ОРВИ'],likes_count:56,status:'approved'},
+];
+
+function toast(msg,dur=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur);}
+
+function nav(p){
+  document.querySelectorAll('.panel').forEach(e=>e.classList.remove('a'));
+  document.querySelectorAll('.ni').forEach(e=>e.classList.remove('a'));
+  const panel=document.getElementById('p-'+p);
+  const ni=document.getElementById('n-'+p);
+  if(panel)panel.classList.add('a');
+  if(ni)ni.classList.add('a');
+  if(p==='mod')initMetrics();
+  if(p==='recs')loadRecs();
+  if(p==='users')loadUsers();
+  if(p==='perf')loadStats();
+}
+
+async function login(){
+  const u=document.getElementById('lu').value;
+  const p=document.getElementById('lp').value;
+  try{
+    const r=await fetch(BASE+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    if(r.ok){const d=await r.json();_token=d.token;_user=d.user;finishLogin();}
+    else{_user={id:u,name:u==='user1'?'Д-р Петров А.С.':u==='user2'?'Мария Иванова':'Администратор',role:u==='user1'?'doctor':u==='admin'?'admin':'patient'};_token='local';finishLogin();}
+  }catch{_user={id:u,name:u==='user1'?'Д-р Петров А.С.':u==='user2'?'Мария Иванова':'Администратор',role:u==='user1'?'doctor':u==='admin'?'admin':'patient'};_token='local';finishLogin();}
+}
+function finishLogin(){
+  document.getElementById('auth').style.display='none';
+  document.getElementById('un').textContent=_user.name+' ('+_user.role+')';
+  loadFeed();loadSidebar();
+}
+
+function renderPost(p){
+  const av=p.author?p.author.split(' ').map(w=>w[0]).join('').slice(0,2):'?';
+  const sc={approved:'sa',suspicious:'ss',blocked:'sb2'}[p.status]||'sa';
+  const sl={approved:'Одобрено',suspicious:'Подозрительно',blocked:'Заблокировано'}[p.status]||p.status;
+  return`<div class="post">
+    <div class="ph"><div class="av ${p.role==='doctor'?'d':''}">${av}</div>
+    <div><div style="font-weight:700;font-size:12px">${p.author||'—'}</div>
+    <div style="font-size:11px;color:#6B7280">${p.role==='doctor'?'Врач':'Пациент'}</div></div></div>
+    <div class="ptitle">${p.title}</div>
+    <div class="pbody">${p.body}</div>
+    ${p.tags&&p.tags.length?'<div class="tags">'+p.tags.filter(Boolean).map(t=>`<span class="tag">#${t}</span>`).join('')+'</div>':''}
+    <div class="acts">
+      <button class="ab" onclick="likePost('${p.id}',this)">❤️ ${p.likes_count||0}</button>
+      <span class="sb ${sc}">${sl}</span>
+    </div></div>`;
+}
+
+async function loadFeed(){
+  const el=document.getElementById('feed-list');if(!el)return;
+  try{
+    const r=await fetch(BASE+'/posts?limit=20');
+    if(r.ok){const d=await r.json();el.innerHTML=d.posts.map(renderPost).join('');}
+    else{el.innerHTML=MEM_POSTS_LOCAL.map(renderPost).join('');}
+  }catch{el.innerHTML=MEM_POSTS_LOCAL.map(renderPost).join('');}
+}
+
+async function likePost(id,btn){
+  if(!_token){toast('Войдите для оценки');return;}
+  const headers={'Content-Type':'application/json'};
+  if(_token!=='local')headers['Authorization']='Bearer '+_token;
+  try{await fetch(BASE+'/posts/'+id+'/like',{method:'POST',headers});}catch{}
+  const n=parseInt(btn.textContent.replace(/[^0-9]/g,''))||0;
+  btn.textContent='❤️ '+(n+1);
+}
+
+async function publish(){
+  const t=document.getElementById('qt').value.trim();
+  const b=document.getElementById('qb').value.trim();
+  if(!t||!b){toast('Заполните заголовок и описание');return;}
+  const tags=document.getElementById('qtg').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const headers={'Content-Type':'application/json'};
+  if(_token&&_token!=='local')headers['Authorization']='Bearer '+_token;
+  const modResult=moderate(t+' '+b);
+  showMR('mp',modResult);
+  try{
+    const r=await fetch(BASE+'/posts',{method:'POST',headers,body:JSON.stringify({title:t,body:b,tags})});
+    if(r.ok){toast('Опубликовано!');loadFeed();}
+    else toast('Опубликовано локально');
+  }catch{toast('Опубликовано локально');}
+}
+
+function checkMod(){
+  const t=document.getElementById('qt').value+' '+document.getElementById('qb').value;
+  showMR('mp',moderate(t.trim()||'тест'));
+}
+
+function demo(){
+  document.getElementById('qt').value='Как снизить артериальное давление?';
+  document.getElementById('qb').value='У меня гипертония 2 степени, врач назначил ингибиторы АПФ. Какие изменения образа жизни рекомендует кардиология согласно протоколам?';
+  document.getElementById('qtg').value='гипертония, кардиология';
+}
+
+function runMod(){
+  const t=document.getElementById('mt').value.trim();
+  if(!t){toast('Введите текст');return;}
+  const res=moderate(t);
+  showMR('mo',res);
+  fetch(BASE+'/moderation/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})}).catch(()=>{});
+}
+
+async function loadRecs(){
+  const el=document.getElementById('recs-list');if(!el)return;
+  const uid=_user?_user.id:'user1';
+  try{
+    const r=await fetch(BASE+'/recommendations/'+uid+'?top_k=5');
+    if(r.ok){
+      const d=await r.json();
+      el.innerHTML='<div class="card"><div style="font-size:12px;color:#6B7280;margin-bottom:8px">Гибридная модель CBF+SVD · α=0.4</div>'+
+        d.recommendations.map(rec=>`<div class="ri"><div class="rd"></div><div><div style="font-weight:600">${rec.title||rec.id}</div><div class="rp2">Релевантность: ${((rec.score||0.5)*100).toFixed(0)}%</div></div></div>`).join('')+'</div>';
+    }else{el.innerHTML='<p style="color:#6B7280;font-size:13px">Рекомендации недоступны (offline)</p>';}
+  }catch{el.innerHTML='<p style="color:#6B7280;font-size:13px">Рекомендации недоступны (offline)</p>';}
+}
+
+async function loadUsers(){
+  const el=document.getElementById('ul');if(!el)return;
+  try{
+    const r=await fetch(BASE+'/users');
+    if(r.ok){const d=await r.json();el.innerHTML=d.users.map(u=>`<div class="card"><b>${u.name}</b> · <span style="color:#6B7280">${u.role}</span><br><small>Постов: ${u.posts_count||0} · Лайков: ${u.likes_count||0}${u.is_anomalous?' · ⚠️ Аномалия':''}</small></div>`).join('');}
+    else{el.innerHTML='<p style="color:#6B7280">Offline</p>';}
+  }catch{el.innerHTML='<p style="color:#6B7280">Offline</p>';}
+}
+
+async function runAnomaly(){
+  const el=document.getElementById('ua');if(!el)return;
+  el.style.display='block';
+  el.innerHTML='🔍 SVD-детектор аномалий: анализируем активность пользователей...<br><small style="color:#6B7280">Метод: Singular Value Decomposition · порог σ=2.5</small>';
+}
+
+async function loadStats(){
+  const el=document.getElementById('platform-stats');if(!el)return;
+  try{
+    const r=await fetch(BASE+'/stats');
+    if(r.ok){const d=await r.json();el.innerHTML=`<div class="stat">
+      <div class="card"><div class="sv">${d.posts||0}</div><div class="sl">Публикаций</div></div>
+      <div class="card"><div class="sv">${d.users||0}</div><div class="sl">Пользователей</div></div>
+      <div class="card"><div class="sv">${d.likes||0}</div><div class="sl">Лайков</div></div>
+      <div class="card"><div class="sv">${d.moderation_pct||100}%</div><div class="sl">Одобрено</div></div>
+    </div>`;}
+    else{el.innerHTML='<p style="color:#6B7280">Статистика offline</p>';}
+  }catch{el.innerHTML='<p style="color:#6B7280">Статистика offline</p>';}
+}
+
+async function loadSidebar(){
+  const statsEl=document.getElementById('rp-stats');
+  const tagsEl=document.getElementById('rp-tags');
+  const recsEl=document.getElementById('rp-recs');
+  if(statsEl)statsEl.innerHTML=`
+    <div class="card"><div class="sv">${L1_DANGER.length+L2_RISK.length+L3_AMPLIFIERS.length+L4_SPAM.length}</div><div class="sl">Паттернов v3</div></div>
+    <div class="card"><div class="sv">${MED_TERMS.length}</div><div class="sl">Мед. терминов</div></div>
+    <div class="card"><div class="sv">${RISK_REDUCERS.length}</div><div class="sl">Снизителей риска</div></div>
+    <div class="card"><div class="sv">4</div><div class="sl">Уровней анализа</div></div>`;
+  if(tagsEl){
+    const tags=['кардиология','диабет','педиатрия','ОРВИ','реабилитация','препараты','гипертония','неврология'];
+    tagsEl.innerHTML=tags.map(t=>`<span class="tag">#${t}</span>`).join('');
+  }
+  if(recsEl){
+    recsEl.innerHTML=['Реабилитация после инфаркта','Метформин при диабете','Профилактика ОРВИ'].map(t=>`<div class="ri"><div class="rd"></div><div>${t}</div></div>`).join('');
+  }
+}
+
+async function runTests(mode){
+  const statusEl=document.getElementById('test-status');
+  const progressEl=document.getElementById('test-progress');
+  const barEl=document.getElementById('progress-bar');
+  const labelEl=document.getElementById('progress-label');
+  const resultsEl=document.getElementById('api-results');
+  if(statusEl)statusEl.textContent='⏳ Тестирование...';
+  if(progressEl)progressEl.style.display='block';
+
+  const endpoints=[
+    {name:'GET /',url:'/'},
+    {name:'GET /health',url:'/health'},
+    {name:'GET /posts',url:'/posts'},
+    {name:'GET /stats',url:'/stats'},
+    {name:'POST /moderation/check',url:'/moderation/check',method:'POST',body:{text:'тест кардиология'}},
+  ];
+  const N=mode==='quick'?3:mode==='full'?10:5;
+  const results=[];
+  for(let i=0;i<endpoints.length;i++){
+    const ep=endpoints[i];
+    if(barEl)barEl.style.width=(i/endpoints.length*100)+'%';
+    if(labelEl)labelEl.textContent=`Тест: ${ep.name}`;
+    const times=[];
+    for(let j=0;j<N;j++){
+      const t0=performance.now();
+      try{
+        const opts={method:ep.method||'GET',headers:{'Content-Type':'application/json'}};
+        if(ep.body)opts.body=JSON.stringify(ep.body);
+        if(_token&&_token!=='local')opts.headers['Authorization']='Bearer '+_token;
+        await fetch(BASE+ep.url,opts);
+      }catch{}
+      times.push(performance.now()-t0);
+    }
+    const avg=times.reduce((a,b)=>a+b,0)/times.length;
+    const mn=Math.min(...times),mx=Math.max(...times);
+    results.push({name:ep.name,avg,min:mn,max:mx});
+  }
+  if(barEl)barEl.style.width='100%';
+  if(labelEl)labelEl.textContent='Готово!';
+  if(statusEl)statusEl.textContent=`✓ Готово (${N} итераций)`;
+
+  const maxAvg=Math.max(...results.map(r=>r.avg));
+  if(resultsEl)resultsEl.innerHTML='<div class="card">'+results.map(r=>`
+    <div class="bar-r">
+      <div class="bl">${r.name.split(' ')[1]||r.name}</div>
+      <div style="flex:1">
+        <div style="font-size:10px;color:#6B7280;margin-bottom:2px">${r.name} · avg ${r.avg.toFixed(0)}ms · min ${r.min.toFixed(0)} · max ${r.max.toFixed(0)}</div>
+        <div class="bb"><div class="bf b1" style="width:${Math.round(r.avg/maxAvg*100)}%">${r.avg.toFixed(0)}ms</div></div>
+      </div>
+    </div>`).join('')+'</div>';
+}
+
+// ── Старт ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  loadStats();
+});
+</script>
+</body>
+</html>
