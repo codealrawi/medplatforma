@@ -681,7 +681,7 @@ async function runTests(mode) {
       const c = LEVELS[i];
       const pct = (mode==='load'?10:75) + Math.round(i/LEVELS.length*20);
       setProgress(pct, `Нагрузочный тест: ${c} параллельных запросов...`);
-      setStatus(`🔥 ${c} concurrent...`);
+      setStatus(`${c} concurrent...`);
       const r = await runConcurrentLoad(c, () => fetch('/posts?limit=10', {cache:'no-store'}));
       loadRes.push(r);
       await new Promise(r => setTimeout(r, 300));
@@ -691,7 +691,7 @@ async function runTests(mode) {
     const slaOk = ms => ms <= 500;
     document.getElementById('load-results').innerHTML = `
       <div class="card">
-        <div class="sec" style="font-size:14px">🔥 Нагрузочный тест · GET /posts · параллельные запросы из браузера</div>
+        <div class="sec" style="font-size:14px">Нагрузочный тест · GET /posts · параллельные запросы из браузера</div>
         <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px">
         <thead><tr style="background:#1B2A4A;color:#fff">
@@ -738,7 +738,7 @@ async function runTests(mode) {
   await loadPlatformStats();
 
   setProgress(100, '');
-  setStatus('✅ Тест завершён · ' + new Date().toLocaleTimeString('ru'));
+  setStatus('Тест завершён · ' + new Date().toLocaleTimeString('ru'));
   disableBtns(false);
   _testing = false;
 }
